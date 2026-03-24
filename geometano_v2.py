@@ -5,6 +5,8 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import plotly.express as px
 import io
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from streamlit_plotly_events import plotly_events
 
 # =========================
 # CONFIG
@@ -87,23 +89,20 @@ col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato)>0 else "-")
 
 # =========================
-# MENU SELEZIONE (simula click mappa)
-# =========================
-impianti_list = df_filtrato["comune"].unique().tolist()
-selected_comune = st.selectbox("📌 Seleziona impianto per evidenziazione", ["Tutti"] + impianti_list)
-if selected_comune != "Tutti":
-    st.session_state["selected_comune"] = selected_comune
-else:
-    st.session_state["selected_comune"] = None
-
-# =========================
 # MAPPA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
 if len(df_filtrato) > 0:
+    df_filtrato["info"] = (
+        "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
+        "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
+        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km" +
+        "<br>♻️ Totale trattato (t): " + df_filtrato["totale (t)"].astype(str)
+    )
+
     df_filtrato["marker_size"] = df_filtrato["totale (t)"]
-    df_filtrato["marker_opacity"] = 0.6
     df_filtrato["marker_color"] = df_filtrato["totale (t)"]
+    df_filtrato["marker_opacity"] = 0.8
 
     if st.session_state.get("selected_comune"):
         sel = st.session_state["selected_comune"]
@@ -115,18 +114,27 @@ if len(df_filtrato) > 0:
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="marker_color",
         size="marker_size",
-        color_continuous_scale="Blues",
+        color="marker_color",
+        color_continuous_scale="Oranges",
         size_max=25,
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
         zoom=7,
         height=600
     )
-    fig.update_traces(marker=dict(opacity=df_filtrato["marker_opacity"]))
+    fig.update_traces(marker=dict(opacity=df_filtrato["marker_opacity"], line=dict(width=1,color="black")))
+
     fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
                       coloraxis_colorbar=dict(title="Totale trattato (t)"))
+
+    # =========================
+    # CLICK MAPPA → aggiorna session_state
+    # =========================
+    selected_points = plotly_events(fig, click_event=True, hover_event=False)
+    if selected_points:
+        st.session_state["selected_comune"] = selected_points[0]["hovertext"]
+
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("Nessun impianto trovato nel raggio selezionato.")
@@ -139,7 +147,24 @@ df_tabella = df_filtrato.copy()
 if st.session_state.get("selected_comune"):
     df_tabella = df_tabella[df_tabella["comune"] == st.session_state["selected_comune"]]
 
-st.dataframe(df_tabella.sort_values("distanza_km"), height=400, use_container_width=True)
+gb = GridOptionsBuilder.from_dataframe(df_tabella)
+gb.configure_selection(selection_mode="single", use_checkbox=True)
+grid_options = gb.build()
+grid_response = AgGrid(
+    df_tabella,
+    gridOptions=grid_options,
+    update_mode=GridUpdateMode.SELECTION_CHANGED,
+    height=400,
+    fit_columns_on_grid_load=True
+)
+
+# =========================
+# CLICK TABELLA → aggiorna session_state
+# =========================
+selected_rows = grid_response['selected_rows']
+if selected_rows:
+    st.session_state["selected_comune"] = selected_rows[0]['comune']
+    st.experimental_rerun()
 
 # =========================
 # DOWNLOAD EXCEL
