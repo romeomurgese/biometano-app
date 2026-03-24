@@ -99,12 +99,12 @@ col3.metric(
 # MAPPA
 # =========================
 # =========================
+# =========================
 # MAPPA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
 
 if len(df_filtrato) > 0:
-    # Colonna info per hover
     df_filtrato["info"] = (
         "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
         "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
@@ -115,7 +115,7 @@ if len(df_filtrato) > 0:
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="distanza_km",       # colore per distanza
+        color="distanza_km",       # colore marker
         size="distanza_km",        # dimensione marker proporzionale ai km
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
@@ -123,12 +123,8 @@ if len(df_filtrato) > 0:
         height=600
     )
 
-    # Aggiornamento marker corretto
-    fig.update_traces(marker=dict(
-        sizemode='area',
-        opacity=0.7,
-        line=dict(width=1, color='black')  # correzione da line_width a line dict
-    ))
+    # Solo opacity dei marker, niente sizemode o line
+    fig.update_traces(marker=dict(opacity=0.7))
 
     fig.update_layout(
         mapbox_style="open-street-map",
