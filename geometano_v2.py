@@ -33,7 +33,7 @@ df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 # FILTRI ORIZZONTALI
 # =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+col1, col2, col3, col4 = st.columns([2,2,1,1])
 
 with col1:
     tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
@@ -87,6 +87,18 @@ col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
 # =========================
+# NORMALIZZAZIONE MARKER
+# =========================
+size_min = 5
+size_max = 50
+t_min = df_filtrato["totale (t)"].min()
+t_max = df_filtrato["totale (t)"].max()
+if t_max == t_min:
+    df_filtrato["marker_size"] = 20
+else:
+    df_filtrato["marker_size"] = ((df_filtrato["totale (t)"] - t_min) / (t_max - t_min) * (size_max - size_min) + size_min)
+
+# =========================
 # MAPPA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
@@ -99,7 +111,7 @@ if len(df_filtrato) > 0:
         lon=df_filtrato[lon_col].tolist(),
         mode='markers',
         marker=go.scattermapbox.Marker(
-            size=df_filtrato["totale (t)"].tolist(),
+            size=df_filtrato["marker_size"].tolist(),
             color='orange',
             opacity=0.8,
             line=dict(width=1, color='black')
@@ -111,13 +123,14 @@ if len(df_filtrato) > 0:
     # TRACE MARKER SELEZIONATO
     if st.session_state.get("selected_comune"):
         sel = st.session_state["selected_comune"]
-        df_sel = df_filtrato[df_filtrato["comune"] == sel]
+        df_sel = df_filtrato[df_filtrato["comune"] == sel].copy()
+        df_sel["marker_size"] = df_sel["marker_size"] * 1.5
         fig.add_trace(go.Scattermapbox(
             lat=df_sel[lat_col].tolist(),
             lon=df_sel[lon_col].tolist(),
             mode='markers',
             marker=go.scattermapbox.Marker(
-                size=(df_sel["totale (t)"]*1.5).tolist(),
+                size=df_sel["marker_size"].tolist(),
                 color='red',
                 opacity=1,
                 line=dict(width=2, color='black')
