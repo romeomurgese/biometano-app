@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-st.write("VERSIONE CORRETTA SENZA UPDATE_TRACES")
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import plotly.express as px
 import io
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-from streamlit_plotly_events import plotly_events
 
+# =========================
 # CONFIG
+# =========================
 st.set_page_config(layout="wide")
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
+# =========================
 # LOAD DATA
+# =========================
 @st.cache_data
 def load_data():
     df = pd.read_excel("impianti.xlsx")
@@ -21,58 +22,90 @@ def load_data():
     return df
 
 df = load_data()
+
 if "totale (t)" not in df.columns:
     st.error("Colonna 'totale (t)' mancante!")
     st.stop()
+
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
+# =========================
 # FILTRI ORIZZONTALI
+# =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-col1, col2, col3, col4 = st.columns([2,2,1,1])
+
+col1, col2, col3 = st.columns([2,2,1])
+
 with col1:
-    tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
+    tipologia_selezionata = st.multiselect(
+        "Tipologia impianti",
+        options=tipologie,
+        default=tipologie
+    )
+
 with col2:
     comune_input = st.text_input("Comune di riferimento", "Milano")
+
 with col3:
     raggio_km = st.slider("Raggio (km)", 1, 100, 20)
-with col4:
-    if st.button("🔄 Reset selezione"):
-        if "selected_comune" in st.session_state:
-            del st.session_state["selected_comune"]
-        st.experimental_rerun()
 
+# =========================
 # GEOLOCALIZZAZIONE
+# =========================
 geolocator = Nominatim(user_agent="biometano_app")
 location = geolocator.geocode(comune_input + ", Italia")
+
 if location is None:
     st.error("Comune non trovato")
     st.stop()
-lat_centro, lon_centro = location.latitude, location.longitude
-lat_col, lon_col = "latitudine", "longitudine"
+
+lat_centro = location.latitude
+lon_centro = location.longitude
+
+lat_col = "latitudine"
+lon_col = "longitudine"
+
 if lat_col not in df.columns or lon_col not in df.columns:
-    st.error("Colonne lat/lon mancanti")
+    st.error("Colonne latitudine/longitudine mancanti")
     st.stop()
 
+# =========================
 # CALCOLO DISTANZA
-df["distanza_km"] = df.apply(lambda r: geodesic((lat_centro, lon_centro), (r[lat_col], r[lon_col])).km, axis=1).round(1)
-df_filtrato = df[(df["distanza_km"] <= raggio_km) & (df["tipologia"].isin(tipologia_selezionata))].copy()
+# =========================
+df["distanza_km"] = df.apply(
+    lambda r: geodesic((lat_centro, lon_centro), (r[lat_col], r[lon_col])).km,
+    axis=1
+).round(1)
+
+# =========================
+# FILTRO DATI
+# =========================
+df_filtrato = df[
+    (df["distanza_km"] <= raggio_km) &
+    (df["tipologia"].isin(tipologia_selezionata))
+].copy()
+
 df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 
+# =========================
 # KPI
+# =========================
 col1, col2, col3 = st.columns(3)
+
 col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
-col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
-# MAPPA SEMPLICE
-st.write("### 🗺️ Mappa interattiva")
 if len(df_filtrato) > 0:
-    df_filtrato["hover_info"] = (
-        "📍 Comune: " + df_filtrato["comune"].astype(str) +
-        "<br>🏭 Tipo: " + df_filtrato["tipologia"].astype(str) +
-        "<br>♻️ Totale trattato: " + df_filtrato["totale (t)"].astype(str) +
-        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
-    )
+    col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km")
+else:
+    col3.metric("Distanza media", "-")
+
+# =========================
+# MAPPA (STABILE)
+# =========================
+st.write("### 🗺️ Mappa impianti")
+
+if len(df_filtrato) > 0:
 
     fig = px.scatter_mapbox(
         df_filtrato,
@@ -81,45 +114,60 @@ if len(df_filtrato) > 0:
         size="totale (t)",
         color="totale (t)",
         hover_name="comune",
-        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+        hover_data={
+            "tipologia": True,
+            "totale (t)": True,
+            "distanza_km": True,
+            lat_col: False,
+            lon_col: False
+        },
         color_continuous_scale="Oranges",
         size_max=25,
         zoom=7,
         height=600
     )
 
-    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin=dict(r=0, t=0, l=0, b=0)
+    )
+
     st.plotly_chart(fig, use_container_width=True)
+
 else:
-    st.warning("Nessun impianto trovato nel raggio selezionato.")
+    st.warning("Nessun impianto trovato nel raggio selezionato")
 
-# TABELLA INTERATTIVA
+# =========================
+# TABELLA SEMPLICE
+# =========================
 st.write("### 📊 Tabella impianti")
-df_tabella = df_filtrato.copy()
-if st.session_state.get("selected_comune"):
-    df_tabella = df_tabella[df_tabella["comune"] == st.session_state["selected_comune"]]
 
-gb = GridOptionsBuilder.from_dataframe(df_tabella)
-gb.configure_selection(selection_mode="single", use_checkbox=True)
-grid_options = gb.build()
-grid_response = AgGrid(
-    df_tabella,
-    gridOptions=grid_options,
-    update_mode=GridUpdateMode.SELECTION_CHANGED,
-    height=400,
-    fit_columns_on_grid_load=True
-)
+if len(df_filtrato) > 0:
 
-# CLICK TABELLA
-selected_rows = grid_response['selected_rows']
-if selected_rows:
-    st.session_state["selected_comune"] = selected_rows[0]['comune']
-    st.experimental_rerun()
+    comuni = df_filtrato["comune"].dropna().unique().tolist()
 
+    comune_sel = st.selectbox(
+        "Filtra per comune",
+        ["Tutti"] + comuni
+    )
+
+    if comune_sel != "Tutti":
+        df_tabella = df_filtrato[df_filtrato["comune"] == comune_sel]
+    else:
+        df_tabella = df_filtrato
+
+    st.dataframe(df_tabella, use_container_width=True)
+
+else:
+    st.warning("Nessun dato disponibile")
+
+# =========================
 # DOWNLOAD EXCEL
+# =========================
 output = io.BytesIO()
-df_tabella.to_excel(output, index=False, engine='openpyxl')
+df_filtrato.to_excel(output, index=False, engine='openpyxl')
 output.seek(0)
+
 st.download_button(
     "💾 Scarica dati filtrati in Excel",
     data=output,
