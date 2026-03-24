@@ -111,21 +111,20 @@ if len(df_filtrato) > 0:
         "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
     )
 
-    fig = px.scatter_mapbox(
-        df_filtrato,
-        lat=lat_col,
-        lon=lon_col,
-        color="distanza_km",       # colore marker
-        size="distanza_km",        # dimensione marker proporzionale ai km
-        hover_name="comune",
-        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
-        zoom=7,
-        height=600
-    )
-
-    # Solo opacity dei marker, niente sizemode o line
-    fig.update_traces(marker=dict(opacity=0.7))
-
+    # Esempio
+fig = px.scatter_mapbox(
+    df_filtrato,
+    lat=lat_col,
+    lon=lon_col,
+    color="quantita_rifiuti",  # colore basato sulle quantità trattate
+    size="distanza_km",         # dimensione marker opzionale, o fissa
+    color_continuous_scale="YlOrRd",  # giallo → rosso
+    hover_name="comune",
+    hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+    zoom=7,
+    height=600
+)
+fig.update_layout(coloraxis_colorbar=dict(title="Quantità trattate"))
     fig.update_layout(
         mapbox_style="open-street-map",
         margin={"r":0,"t":0,"l":0,"b":0}
