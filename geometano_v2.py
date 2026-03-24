@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
+st.write("VERSIONE CORRETTA SENZA UPDATE_TRACES")
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
