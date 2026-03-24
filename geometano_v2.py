@@ -3,20 +3,16 @@ import streamlit as st
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-import plotly.express as px
+import plotly.graph_objects as go
 import io
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_plotly_events import plotly_events
 
-# =========================
-# CONFIG
-# =========================
 st.set_page_config(layout="wide")
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
 # =========================
 # LOAD DATA
-# =========================
 @st.cache_data
 def load_data():
     df = pd.read_excel("impianti.xlsx")
@@ -31,7 +27,6 @@ df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
 # FILTRI ORIZZONTALI
-# =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
 col1, col2, col3, col4 = st.columns([2,2,1,1])
 with col1:
@@ -48,14 +43,12 @@ with col4:
 
 # =========================
 # GEOLOCALIZZAZIONE
-# =========================
 geolocator = Nominatim(user_agent="biometano_app")
 location = geolocator.geocode(comune_input + ", Italia")
 if location is None:
     st.error("Comune non trovato")
     st.stop()
-lat_centro = location.latitude
-lon_centro = location.longitude
+lat_centro, lon_centro = location.latitude, location.longitude
 lat_col, lon_col = "latitudine", "longitudine"
 if lat_col not in df.columns or lon_col not in df.columns:
     st.error("Colonne lat/lon mancanti")
@@ -63,71 +56,57 @@ if lat_col not in df.columns or lon_col not in df.columns:
 
 # =========================
 # CALCOLO DISTANZA
-# =========================
 df["distanza_km"] = df.apply(lambda r: geodesic((lat_centro, lon_centro), (r[lat_col], r[lon_col])).km, axis=1).round(1)
-
-# =========================
-# FILTRO BASE
-# =========================
 df_filtrato = df[(df["distanza_km"] <= raggio_km) & (df["tipologia"].isin(tipologia_selezionata))].copy()
 df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 
 # =========================
 # KPI
-# =========================
 col1, col2, col3 = st.columns(3)
 col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
 # =========================
-# MARKER E LABEL
-# =========================
-df_filtrato["marker_color"] = "orange"
-df_filtrato["marker_label"] = df_filtrato.apply(lambda r: f"{r['totale (t)']:.0f} t\n{r['distanza_km']:.1f} km", axis=1)
-if st.session_state.get("selected_comune"):
-    sel = st.session_state["selected_comune"]
-    df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = "red"
-
-# =========================
-# MAPPA
-# =========================
+# COSTRUZIONE FIGURA CON GO.FIGURE
 st.write("### 🗺️ Mappa interattiva")
-if len(df_filtrato) > 0:
-    fig = px.scatter_mapbox(
-        df_filtrato,
-        lat=lat_col,
-        lon=lon_col,
-        hover_name="comune",
-        hover_data={"totale (t)": True, "distanza_km": True, lat_col: False, lon_col: False},
-        color="marker_color",
-        text="marker_label",
-        size_max=20,
-        zoom=7,
-        height=600
-    )
+fig = go.Figure()
 
-    # Marker fissi, linea nera, label sopra
-    fig.update_traces(marker=dict(size=20, line=dict(width=1, color="black")), textposition="top center")
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox_center={"lat": lat_centro, "lon": lon_centro},
-        margin=dict(r=0, t=0, l=0, b=0),
-        showlegend=False
-    )
+for idx, row in df_filtrato.iterrows():
+    marker_color = "red" if st.session_state.get("selected_comune") == row["comune"] else "orange"
+    fig.add_trace(go.Scattermapbox(
+        lat=[row[lat_col]],
+        lon=[row[lon_col]],
+        mode="markers+text",
+        marker=go.scattermapbox.Marker(
+            size=20,
+            color=marker_color,
+            line=dict(width=1, color="black")
+        ),
+        text=f"{row['totale (t)']:.0f} t\n{row['distanza_km']:.1f} km",
+        textposition="top center",
+        hoverinfo="text",
+        name=row["comune"]
+    ))
 
-    # CLICK MAPPA → aggiorna session_state
-    selected_points = plotly_events(fig, click_event=True, hover_event=False)
-    if selected_points:
-        st.session_state["selected_comune"] = selected_points[0]["hovertext"]
+fig.update_layout(
+    mapbox_style="open-street-map",
+    mapbox_center={"lat": lat_centro, "lon": lon_centro},
+    mapbox_zoom=7,
+    margin=dict(r=0, t=0, l=0, b=0),
+    showlegend=False
+)
 
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.warning("Nessun impianto trovato nel raggio selezionato.")
+# =========================
+# CLICK MAPPA
+selected_points = plotly_events(fig, click_event=True, hover_event=False)
+if selected_points:
+    st.session_state["selected_comune"] = selected_points[0]["name"]
+
+st.plotly_chart(fig, use_container_width=True)
 
 # =========================
 # TABELLA INTERATTIVA
-# =========================
 st.write("### 📊 Tabella impianti")
 df_tabella = df_filtrato.copy()
 if st.session_state.get("selected_comune"):
@@ -144,7 +123,7 @@ grid_response = AgGrid(
     fit_columns_on_grid_load=True
 )
 
-# CLICK TABELLA → aggiorna session_state
+# CLICK TABELLA
 selected_rows = grid_response['selected_rows']
 if selected_rows:
     st.session_state["selected_comune"] = selected_rows[0]['comune']
@@ -152,7 +131,6 @@ if selected_rows:
 
 # =========================
 # DOWNLOAD EXCEL
-# =========================
 output = io.BytesIO()
 df_tabella.to_excel(output, index=False, engine='openpyxl')
 output.seek(0)
