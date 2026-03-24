@@ -24,19 +24,16 @@ def load_data():
     return df
 
 df = load_data()
-
 if "totale (t)" not in df.columns:
     st.error("Colonna 'totale (t)' mancante!")
     st.stop()
-
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
 # FILTRI ORIZZONTALI
 # =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-
+col1, col2, col3, col4 = st.columns([2,2,1,1])
 with col1:
     tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
 with col2:
@@ -59,9 +56,7 @@ if location is None:
     st.stop()
 lat_centro = location.latitude
 lon_centro = location.longitude
-
-lat_col = "latitudine"
-lon_col = "longitudine"
+lat_col, lon_col = "latitudine", "longitudine"
 if lat_col not in df.columns or lon_col not in df.columns:
     st.error("Colonne lat/lon mancanti")
     st.stop()
@@ -90,7 +85,6 @@ col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if l
 # =========================
 df_filtrato["marker_color"] = "orange"
 df_filtrato["marker_label"] = df_filtrato.apply(lambda r: f"{r['totale (t)']:.0f} t\n{r['distanza_km']:.1f} km", axis=1)
-
 if st.session_state.get("selected_comune"):
     sel = st.session_state["selected_comune"]
     df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = "red"
@@ -108,11 +102,12 @@ if len(df_filtrato) > 0:
         hover_data={"totale (t)": True, "distanza_km": True, lat_col: False, lon_col: False},
         color="marker_color",
         text="marker_label",
+        size_max=20,
         zoom=7,
         height=600
     )
 
-    # Marker fissi e leggibili
+    # Marker fissi, linea nera, label sopra
     fig.update_traces(marker=dict(size=20, line=dict(width=1, color="black")), textposition="top center")
     fig.update_layout(
         mapbox_style="open-street-map",
