@@ -123,19 +123,20 @@ if len(df_filtrato) > 0:
     )
 
     fig = px.scatter_mapbox(
-        df_filtrato,
-        lat=lat_col,
-        lon=lon_col,
-        color="totale (t)",           # colore basato sulle quantità trattate
-        size="distanza_km",           # dimensione marker proporzionale alla distanza
-        color_continuous_scale="YlOrRd",
-        hover_name="comune",
-        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
-        zoom=7,
-        height=600
-    )
+    df_filtrato,
+    lat=lat_col,
+    lon=lon_col,
+    color="totale (t)",
+    size_max=15,        # dimensione massima dei marker
+    size=None,          # dimensione fissa
+    color_continuous_scale="Blues",
+    hover_name="comune",
+    hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+    zoom=7,
+    height=600
+)
 
-    fig.update_traces(marker=dict(opacity=0.7))
+    fig.update_traces(marker=dict(opacity=0.5))
 
     fig.update_layout(
         mapbox_style="open-street-map",
