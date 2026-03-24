@@ -72,17 +72,39 @@ df_filtrato = df[df["distanza_km"] <= raggio_km]
 st.write(f"### Impianti trovati: {len(df_filtrato)}")
 
 # MAPPA
-mappa = folium.Map(location=[lat_centro, lon_centro], zoom_start=9)
+import plotly.express as px
 
-for _, row in df_filtrato.iterrows():
-    folium.Marker(
-        [row[lat_col], row[lon_col]],
-        popup=str(row.get("comune", "Impianto"))
-    ).add_to(mappa)
+st.write("### 🗺️ Mappa interattiva")
 
-st.write("### 🗺️ Mappa")
-st_folium(mappa, height=500)
+if len(df_filtrato) > 0:
 
+    # Colonna descrizione (modifica se serve)
+    df_filtrato["descrizione"] = (
+        "Comune: " + df_filtrato.get("comune", "").astype(str) +
+        "<br>Distanza: " + df_filtrato["distanza_km"].round(1).astype(str) + " km"
+    )
+
+    fig = px.scatter_mapbox(
+        df_filtrato,
+        lat=lat_col,
+        lon=lon_col,
+        hover_name="comune" if "comune" in df_filtrato.columns else None,
+        hover_data={
+            "distanza_km": True
+        },
+        zoom=7,
+        height=600
+    )
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+else:
+    st.warning("Nessun impianto trovato")
 # TABELLA
 st.write("### 📊 Tabella")
 st.dataframe(df_filtrato, height=400)
