@@ -8,10 +8,10 @@ import io
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_plotly_events import plotly_events
 
+# CONFIG
 st.set_page_config(layout="wide")
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
-# =========================
 # LOAD DATA
 @st.cache_data
 def load_data():
@@ -25,7 +25,6 @@ if "totale (t)" not in df.columns:
     st.stop()
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
-# =========================
 # FILTRI ORIZZONTALI
 tipologie = df["tipologia"].dropna().unique().tolist()
 col1, col2, col3, col4 = st.columns([2,2,1,1])
@@ -41,7 +40,6 @@ with col4:
             del st.session_state["selected_comune"]
         st.experimental_rerun()
 
-# =========================
 # GEOLOCALIZZAZIONE
 geolocator = Nominatim(user_agent="biometano_app")
 location = geolocator.geocode(comune_input + ", Italia")
@@ -54,20 +52,17 @@ if lat_col not in df.columns or lon_col not in df.columns:
     st.error("Colonne lat/lon mancanti")
     st.stop()
 
-# =========================
 # CALCOLO DISTANZA
 df["distanza_km"] = df.apply(lambda r: geodesic((lat_centro, lon_centro), (r[lat_col], r[lon_col])).km, axis=1).round(1)
 df_filtrato = df[(df["distanza_km"] <= raggio_km) & (df["tipologia"].isin(tipologia_selezionata))].copy()
 df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 
-# =========================
 # KPI
 col1, col2, col3 = st.columns(3)
 col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
-# =========================
 # COSTRUZIONE FIGURA CON GO.FIGURE
 st.write("### 🗺️ Mappa interattiva")
 fig = go.Figure()
@@ -97,7 +92,6 @@ fig.update_layout(
     showlegend=False
 )
 
-# =========================
 # CLICK MAPPA
 selected_points = plotly_events(fig, click_event=True, hover_event=False)
 if selected_points:
@@ -105,7 +99,6 @@ if selected_points:
 
 st.plotly_chart(fig, use_container_width=True)
 
-# =========================
 # TABELLA INTERATTIVA
 st.write("### 📊 Tabella impianti")
 df_tabella = df_filtrato.copy()
@@ -129,7 +122,6 @@ if selected_rows:
     st.session_state["selected_comune"] = selected_rows[0]['comune']
     st.experimental_rerun()
 
-# =========================
 # DOWNLOAD EXCEL
 output = io.BytesIO()
 df_tabella.to_excel(output, index=False, engine='openpyxl')
