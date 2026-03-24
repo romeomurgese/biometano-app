@@ -87,23 +87,13 @@ col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
 # =========================
-# NORMALIZZAZIONE MARKER
+# MARKER STANDARD PIU VISIBILI
 # =========================
-size_min = 5
-size_max = 50
-t_min = df_filtrato["totale (t)"].min()
-t_max = df_filtrato["totale (t)"].max()
-if t_max == t_min:
-    df_filtrato["marker_size"] = 20
-else:
-    df_filtrato["marker_size"] = ((df_filtrato["totale (t)"] - t_min) / (t_max - t_min) * (size_max - size_min) + size_min)
-
-# Colore: arancione base, rosso selezionato
+marker_size = 15  # dimensione fissa, visibile
 df_filtrato["marker_color"] = "orange"
 if st.session_state.get("selected_comune"):
     sel = st.session_state["selected_comune"]
     df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = "red"
-    df_filtrato.loc[df_filtrato["comune"] == sel, "marker_size"] *= 1.5
 
 # =========================
 # MAPPA CON PX EXPRESS
@@ -114,25 +104,27 @@ if len(df_filtrato) > 0:
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        size="marker_size",
         color="marker_color",
+        size_max=marker_size,
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
         zoom=7,
-        height=600,
+        height=600
     )
+    fig.update_traces(marker=dict(size=marker_size, line=dict(width=1, color="black")))
+
     fig.update_layout(
         mapbox_style="open-street-map",
         margin={"r":0,"t":0,"l":0,"b":0},
-        mapbox_center={"lat": lat_centro, "lon": lon_centro}
+        mapbox_center={"lat": lat_centro, "lon": lon_centro},
+        showlegend=False
     )
 
     # CLICK MAPPA → aggiorna session_state
-    selected_points = plotly_events(fig, click_event=True)
+    selected_points = plotly_events(fig, click_event=True, hover_event=False)
     if selected_points:
         st.session_state["selected_comune"] = selected_points[0]["hovertext"]
 
-    st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("Nessun impianto trovato nel raggio selezionato.")
 
