@@ -94,37 +94,37 @@ fig = go.Figure()
 
 if len(df_filtrato) > 0:
     # TRACE TUTTI GLI IMPIANTI
+fig.add_trace(go.Scattermapbox(
+    lat=df_filtrato[lat_col].tolist(),
+    lon=df_filtrato[lon_col].tolist(),
+    mode='markers',
+    marker=go.scattermapbox.Marker(
+        size=df_filtrato["totale (t)"].tolist(),
+        color='orange',
+        opacity=0.8,
+        line=dict(width=1, color='black')
+    ),
+    hoverinfo='text',
+    hovertext=df_filtrato["comune"].tolist()
+))
+
+# TRACE MARKER SELEZIONATO
+if st.session_state.get("selected_comune"):
+    sel = st.session_state["selected_comune"]
+    df_sel = df_filtrato[df_filtrato["comune"] == sel]
     fig.add_trace(go.Scattermapbox(
-        lat=df_filtrato[lat_col],
-        lon=df_filtrato[lon_col],
+        lat=df_sel[lat_col].tolist(),
+        lon=df_sel[lon_col].tolist(),
         mode='markers',
         marker=go.scattermapbox.Marker(
-            size=df_filtrato["totale (t)"],
-            color='orange',
-            opacity=0.8,
-            line=dict(width=1, color='black')
+            size=(df_sel["totale (t)"]*1.5).tolist(),
+            color='red',
+            opacity=1,
+            line=dict(width=2, color='black')
         ),
         hoverinfo='text',
-        hovertext=df_filtrato["comune"]
+        hovertext=df_sel["comune"].tolist()
     ))
-
-    # TRACE MARKER SELEZIONATO
-    if st.session_state.get("selected_comune"):
-        sel = st.session_state["selected_comune"]
-        df_sel = df_filtrato[df_filtrato["comune"] == sel]
-        fig.add_trace(go.Scattermapbox(
-            lat=df_sel[lat_col],
-            lon=df_sel[lon_col],
-            mode='markers',
-            marker=go.scattermapbox.Marker(
-                size=df_sel["totale (t)"]*1.5,
-                color='red',
-                opacity=1,
-                line=dict(width=2, color='black')
-            ),
-            hoverinfo='text',
-            hovertext=df_sel["comune"]
-        ))
 
     fig.update_layout(
         mapbox_style="open-street-map",
