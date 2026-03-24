@@ -4,10 +4,12 @@ import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import plotly.express as px
+import io
 
+# =========================
 # CONFIG
+# =========================
 st.set_page_config(layout="wide")
-
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
 # =========================
@@ -22,11 +24,19 @@ def load_data():
 df = load_data()
 
 # =========================
-# SIDEBAR
+# SIDEBAR - FILTRI
 # =========================
 st.sidebar.header("🔍 Filtri")
 
-comune_input = st.sidebar.text_input("Comune", "Milano")
+# Slicer per tipologia
+tipologie = df["tipologia"].dropna().unique().tolist()
+tipologia_selezionata = st.sidebar.multiselect(
+    "Seleziona tipologia impianti",
+    options=tipologie,
+    default=tipologie
+)
+
+comune_input = st.sidebar.text_input("Comune di riferimento", "Milano")
 raggio_km = st.sidebar.slider("Raggio (km)", 1, 100, 20)
 
 # =========================
@@ -43,7 +53,7 @@ lat_centro = location.latitude
 lon_centro = location.longitude
 
 # =========================
-# COLONNE
+# COLONNE LAT/LON
 # =========================
 lat_col = "latitudine"
 lon_col = "longitudine"
@@ -54,7 +64,7 @@ if lat_col not in df.columns or lon_col not in df.columns:
     st.stop()
 
 # =========================
-# DISTANZA
+# CALCOLO DISTANZE
 # =========================
 def calcola_distanza(row):
     return geodesic(
@@ -63,25 +73,27 @@ def calcola_distanza(row):
     ).km
 
 df = df.copy()
-df["distanza_km"] = df.apply(calcola_distanza, axis=1)
+df["distanza_km"] = df.apply(calcola_distanza, axis=1).round(1)  # arrotondamento a 1 decimale
 
-df_filtrato = df[df["distanza_km"] <= raggio_km].copy()
+# FILTRI
+df_filtrato = df[
+    (df["distanza_km"] <= raggio_km) &
+    (df["tipologia"].isin(tipologia_selezionata))
+].copy()
 
-# pulizia
 df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 
 # =========================
-# KPI (FIGO!)
+# KPI
 # =========================
 col1, col2, col3 = st.columns(3)
 
 col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
-
-if len(df_filtrato) > 0:
-    col3.metric("Distanza media", f"{round(df_filtrato['distanza_km'].mean(),1)} km")
-else:
-    col3.metric("Distanza media", "-")
+col3.metric(
+    "Distanza media",
+    f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-"
+)
 
 # =========================
 # MAPPA
@@ -89,49 +101,35 @@ else:
 st.write("### 🗺️ Mappa interattiva")
 
 if len(df_filtrato) > 0:
-
-    # DESCRIZIONE COMPLETA
     df_filtrato["info"] = (
         "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
         "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
-        "<br>📏 Distanza: " + df_filtrato["distanza_km"].round(1).astype(str) + " km"
+        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
     )
 
     fig = px.scatter_mapbox(
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="distanza_km",  # colore per distanza
-        size="distanza_km",   # dimensione marker
+        color="distanza_km",
+        size="distanza_km",
         hover_name="comune",
-        hover_data={
-            "distanza_km": True,
-            lat_col: False,
-            lon_col: False
-        },
+        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
         zoom=7,
         height=600
     )
 
-    fig.update_traces(
-        marker=dict(size=10, opacity=0.7)
-    )
-
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
+    fig.update_traces(marker=dict(sizemode='area', opacity=0.7, line_width=1))
+    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
 
     st.plotly_chart(fig, use_container_width=True)
-
 else:
-    st.warning("Nessun impianto trovato")
+    st.warning("Nessun impianto trovato nel raggio selezionato.")
 
 # =========================
 # TABELLA
 # =========================
-st.write("### 📊 Tabella")
-
+st.write("### 📊 Tabella impianti")
 st.dataframe(
     df_filtrato.sort_values("distanza_km"),
     height=400,
@@ -139,23 +137,14 @@ st.dataframe(
 )
 
 # =========================
-# DOWNLOAD
+# DOWNLOAD EXCEL
 # =========================
-import io
-import streamlit as st
-import pandas as pd
-
-# Supponiamo che df_filtrato sia il tuo DataFrame filtrato
-# df_filtrato = ...
-
-# Crea un buffer in memoria
 output = io.BytesIO()
 df_filtrato.to_excel(output, index=False, engine='openpyxl')
-output.seek(0)  # Torna all'inizio del buffer
+output.seek(0)
 
-# Bottone per il download in Streamlit
 st.download_button(
-    label="Scarica Excel",
+    label="💾 Scarica dati filtrati in Excel",
     data=output,
     file_name="dati_filtrati.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
