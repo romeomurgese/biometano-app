@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-import plotly.express as px
 import plotly.graph_objects as go
 import io
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
@@ -25,11 +24,9 @@ def load_data():
     return df
 
 df = load_data()
-
 if "totale (t)" not in df.columns:
     st.error("Colonna 'totale (t)' mancante!")
     st.stop()
-
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
@@ -93,27 +90,25 @@ col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if l
 # MAPPA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
+fig = go.Figure()
 
 if len(df_filtrato) > 0:
-    # BASE TRACE TUTTI I MARKER
-    base_trace = px.scatter_mapbox(
-        df_filtrato,
-        lat=lat_col,
-        lon=lon_col,
-        size="totale (t)",
-        color="totale (t)",
-        color_continuous_scale="Oranges",
-        size_max=25,
-        hover_name="comune",
-        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
-        zoom=7,
-        height=600
-    )
+    # TRACE TUTTI GLI IMPIANTI
+    fig.add_trace(go.Scattermapbox(
+        lat=df_filtrato[lat_col],
+        lon=df_filtrato[lon_col],
+        mode='markers',
+        marker=go.scattermapbox.Marker(
+            size=df_filtrato["totale (t)"],
+            color='orange',
+            opacity=0.8,
+            line=dict(width=1, color='black')
+        ),
+        hoverinfo='text',
+        hovertext=df_filtrato["comune"]
+    ))
 
-    fig = go.Figure(base_trace.data)
-    fig.update_traces(marker=dict(opacity=0.8, line=dict(width=1, color="black")))
-
-    # TRACE PER IL MARKER SELEZIONATO
+    # TRACE MARKER SELEZIONATO
     if st.session_state.get("selected_comune"):
         sel = st.session_state["selected_comune"]
         df_sel = df_filtrato[df_filtrato["comune"] == sel]
@@ -131,8 +126,12 @@ if len(df_filtrato) > 0:
             hovertext=df_sel["comune"]
         ))
 
-    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
-                      coloraxis_colorbar=dict(title="Totale trattato (t)"))
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":0,"l":0,"b":0},
+        mapbox_center={"lat": lat_centro, "lon": lon_centro},
+        mapbox_zoom=7
+    )
 
     # CLICK MAPPA → aggiorna session_state
     selected_points = plotly_events(fig, click_event=True)
@@ -174,6 +173,9 @@ if selected_rows:
 output = io.BytesIO()
 df_tabella.to_excel(output, index=False, engine='openpyxl')
 output.seek(0)
-st.download_button("💾 Scarica dati filtrati in Excel", data=output,
-                   file_name="dati_filtrati.xlsx",
-                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+st.download_button(
+    "💾 Scarica dati filtrati in Excel",
+    data=output,
+    file_name="dati_filtrati.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
