@@ -98,9 +98,13 @@ col3.metric(
 # =========================
 # MAPPA
 # =========================
+# =========================
+# MAPPA
+# =========================
 st.write("### 🗺️ Mappa interattiva")
 
 if len(df_filtrato) > 0:
+    # Colonna info per hover
     df_filtrato["info"] = (
         "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
         "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
@@ -111,21 +115,29 @@ if len(df_filtrato) > 0:
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="distanza_km",
-        size="distanza_km",
+        color="distanza_km",       # colore per distanza
+        size="distanza_km",        # dimensione marker proporzionale ai km
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
         zoom=7,
         height=600
     )
 
-    fig.update_traces(marker=dict(sizemode='area', opacity=0.7, line_width=1))
-    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
+    # Aggiornamento marker corretto
+    fig.update_traces(marker=dict(
+        sizemode='area',
+        opacity=0.7,
+        line=dict(width=1, color='black')  # correzione da line_width a line dict
+    ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":0,"l":0,"b":0}
+    )
 
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("Nessun impianto trovato nel raggio selezionato.")
-
 # =========================
 # TABELLA
 # =========================
