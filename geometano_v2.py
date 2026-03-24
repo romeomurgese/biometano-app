@@ -23,21 +23,34 @@ def load_data():
 
 df = load_data()
 
-# =========================
-# SIDEBAR - FILTRI
-# =========================
-st.sidebar.header("🔍 Filtri")
+# Controlla colonna quantità rifiuti
+if "quantita_rifiuti" not in df.columns:
+    st.error("Colonna 'quantita_rifiuti' mancante! Controlla il tuo Excel.")
+    st.stop()
 
-# Slicer per tipologia
+# Assicurati che sia numerica e senza NaN
+df["quantita_rifiuti"] = pd.to_numeric(df["quantita_rifiuti"], errors='coerce').fillna(0)
+
+# =========================
+# FILTRI ORIZZONTALI
+# =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-tipologia_selezionata = st.sidebar.multiselect(
-    "Seleziona tipologia impianti",
-    options=tipologie,
-    default=tipologie
-)
 
-comune_input = st.sidebar.text_input("Comune di riferimento", "Milano")
-raggio_km = st.sidebar.slider("Raggio (km)", 1, 100, 20)
+st.write("### 🔍 Filtri impianti")
+col1, col2, col3 = st.columns([2,2,1])
+
+with col1:
+    tipologia_selezionata = st.multiselect(
+        "Tipologia impianti",
+        options=tipologie,
+        default=tipologie
+    )
+
+with col2:
+    comune_input = st.text_input("Comune di riferimento", "Milano")
+
+with col3:
+    raggio_km = st.slider("Raggio (km)", 1, 100, 20)
 
 # =========================
 # GEOLOCALIZZAZIONE
@@ -53,7 +66,7 @@ lat_centro = location.latitude
 lon_centro = location.longitude
 
 # =========================
-# COLONNE LAT/LON
+# LAT/LON
 # =========================
 lat_col = "latitudine"
 lon_col = "longitudine"
@@ -64,7 +77,7 @@ if lat_col not in df.columns or lon_col not in df.columns:
     st.stop()
 
 # =========================
-# CALCOLO DISTANZE
+# CALCOLO DISTANZA
 # =========================
 def calcola_distanza(row):
     return geodesic(
@@ -73,14 +86,15 @@ def calcola_distanza(row):
     ).km
 
 df = df.copy()
-df["distanza_km"] = df.apply(calcola_distanza, axis=1).round(1)  # arrotondamento a 1 decimale
+df["distanza_km"] = df.apply(calcola_distanza, axis=1).round(1)
 
+# =========================
 # FILTRI
+# =========================
 df_filtrato = df[
     (df["distanza_km"] <= raggio_km) &
     (df["tipologia"].isin(tipologia_selezionata))
 ].copy()
-
 df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 
 # =========================
@@ -104,15 +118,16 @@ if len(df_filtrato) > 0:
     df_filtrato["info"] = (
         "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
         "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
-        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
+        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km" +
+        "<br>♻️ Quantità trattata: " + df_filtrato["quantita_rifiuti"].astype(str)
     )
 
     fig = px.scatter_mapbox(
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="quantita_rifiuti",       # colore marker basato sulle quantità
-        size="distanza_km",             # dimensione marker opzionale
+        color="quantita_rifiuti",
+        size="distanza_km",
         color_continuous_scale="YlOrRd",
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
@@ -125,12 +140,13 @@ if len(df_filtrato) > 0:
     fig.update_layout(
         mapbox_style="open-street-map",
         margin={"r":0,"t":0,"l":0,"b":0},
-        coloraxis_colorbar=dict(title="Quantità trattate")
+        coloraxis_colorbar=dict(title="Quantità trattata")
     )
 
-    st.plotly_chart(fig, use_container_width=True)  # <-- stessa indentazione del blocco if
+    st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("Nessun impianto trovato nel raggio selezionato.")
+
 # =========================
 # TABELLA
 # =========================
