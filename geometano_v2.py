@@ -5,6 +5,8 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import plotly.express as px
 import io
+from streamlit_plotly_events import plotly_events
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # =========================
 # CONFIG
@@ -23,97 +25,81 @@ def load_data():
 
 df = load_data()
 
-# Controlla colonna 'totale (t)'
 if "totale (t)" not in df.columns:
     st.error("Colonna 'totale (t)' mancante! Controlla il tuo Excel.")
     st.stop()
 
-# Assicurati che sia numerica e senza NaN
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
 # FILTRI ORIZZONTALI
 # =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-
-st.write("### 🔍 Filtri impianti")
-col1, col2, col3 = st.columns([2,2,1])
+col1, col2, col3, col4 = st.columns([2,2,1,1])
 
 with col1:
-    tipologia_selezionata = st.multiselect(
-        "Tipologia impianti",
-        options=tipologie,
-        default=tipologie
-    )
-
+    tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
 with col2:
     comune_input = st.text_input("Comune di riferimento", "Milano")
-
 with col3:
     raggio_km = st.slider("Raggio (km)", 1, 100, 20)
+with col4:
+    # =========================
+    # BOTTONE RESET SELEZIONE
+    # =========================
+    if st.button("🔄 Reset selezione"):
+        if "selected_comune" in st.session_state:
+            del st.session_state["selected_comune"]
+        st.experimental_rerun()
 
 # =========================
 # GEOLOCALIZZAZIONE
 # =========================
 geolocator = Nominatim(user_agent="biometano_app")
 location = geolocator.geocode(comune_input + ", Italia")
-
 if location is None:
     st.error("Comune non trovato")
     st.stop()
-
 lat_centro = location.latitude
 lon_centro = location.longitude
 
-# =========================
-# LAT/LON
-# =========================
 lat_col = "latitudine"
 lon_col = "longitudine"
-
 if lat_col not in df.columns or lon_col not in df.columns:
     st.error("Colonne lat/lon mancanti")
-    st.write(df.columns)
     st.stop()
 
 # =========================
 # CALCOLO DISTANZA
 # =========================
 def calcola_distanza(row):
-    return geodesic(
-        (lat_centro, lon_centro),
-        (row[lat_col], row[lon_col])
-    ).km
+    return geodesic((lat_centro, lon_centro), (row[lat_col], row[lon_col])).km
 
-df = df.copy()
 df["distanza_km"] = df.apply(calcola_distanza, axis=1).round(1)
 
 # =========================
-# FILTRI
+# FILTRO BASE
 # =========================
-df_filtrato = df[
-    (df["distanza_km"] <= raggio_km) &
-    (df["tipologia"].isin(tipologia_selezionata))
-].copy()
+df_filtrato = df[(df["distanza_km"] <= raggio_km) & (df["tipologia"].isin(tipologia_selezionata))].copy()
 df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 
 # =========================
 # KPI
 # =========================
 col1, col2, col3 = st.columns(3)
-
 col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
-col3.metric(
-    "Distanza media",
-    f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-"
-)
+col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
+
+# =========================
+# SELEZIONE
+# =========================
+selected_comune = st.session_state.get("selected_comune", None)
 
 # =========================
 # MAPPA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
-
 if len(df_filtrato) > 0:
     df_filtrato["info"] = (
         "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
@@ -122,53 +108,77 @@ if len(df_filtrato) > 0:
         "<br>♻️ Totale trattato (t): " + df_filtrato["totale (t)"].astype(str)
     )
 
-    # Mappa con effetto area (dimensione proporzionale alla quantità) e colore soft
+    # Dimensioni e colore con evidenziazione
+    df_filtrato["marker_size"] = df_filtrato["totale (t)"]
+    df_filtrato["marker_opacity"] = 0.6
+    df_filtrato["marker_color"] = df_filtrato["totale (t)"]
+
+    if selected_comune:
+        df_filtrato.loc[df_filtrato["comune"] == selected_comune, "marker_size"] = df_filtrato["totale (t)"].max() * 1.5
+        df_filtrato.loc[df_filtrato["comune"] == selected_comune, "marker_opacity"] = 1
+        df_filtrato.loc[df_filtrato["comune"] == selected_comune, "marker_color"] = df_filtrato["totale (t)"].max()
+
     fig = px.scatter_mapbox(
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="totale (t)",          # colore basato sulle quantità trattate
-        size="totale (t)",           # effetto area proporzionale
-        color_continuous_scale="Blues",  
-        size_max=25,                 # dimensione massima marker
+        color="marker_color",
+        size="marker_size",
+        color_continuous_scale="Blues",
+        size_max=25,
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
         zoom=7,
         height=600
     )
 
-    fig.update_traces(marker=dict(opacity=0.6))  # più leggibile
+    fig.update_traces(marker=dict(opacity=df_filtrato["marker_opacity"]))
+    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
+                      coloraxis_colorbar=dict(title="Totale trattato (t)"))
 
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        margin={"r":0,"t":0,"l":0,"b":0},
-        coloraxis_colorbar=dict(title="Totale trattato (t)")
-    )
+    # Click mappa → evidenzia tabella
+    selected_points = plotly_events(fig, click_event=True, hover_event=False)
+    if selected_points:
+        st.session_state.selected_comune = selected_points[0]['hovertext']
+        selected_comune = st.session_state.selected_comune
 
     st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("Nessun impianto trovato nel raggio selezionato.")
+    selected_comune = None
 
 # =========================
-# TABELLA
+# TABELLA INTERATTIVA
 # =========================
 st.write("### 📊 Tabella impianti")
-st.dataframe(
-    df_filtrato.sort_values("distanza_km"),
+df_tabella = df_filtrato.copy()
+if selected_comune:
+    df_tabella = df_tabella[df_tabella["comune"] == selected_comune]
+
+gb = GridOptionsBuilder.from_dataframe(df_tabella)
+gb.configure_selection(selection_mode="single", use_checkbox=True)
+grid_options = gb.build()
+
+grid_response = AgGrid(
+    df_tabella,
+    gridOptions=grid_options,
+    update_mode=GridUpdateMode.SELECTION_CHANGED,
     height=400,
-    use_container_width=True
+    fit_columns_on_grid_load=True
 )
+
+# Click tabella → evidenzia mappa
+selected_rows = grid_response['selected_rows']
+if selected_rows:
+    st.session_state.selected_comune = selected_rows[0]['comune']
+    st.experimental_rerun()  # Aggiorna la mappa con evidenziazione
 
 # =========================
 # DOWNLOAD EXCEL
 # =========================
 output = io.BytesIO()
-df_filtrato.to_excel(output, index=False, engine='openpyxl')
+df_tabella.to_excel(output, index=False, engine='openpyxl')
 output.seek(0)
-
-st.download_button(
-    label="💾 Scarica dati filtrati in Excel",
-    data=output,
-    file_name="dati_filtrati.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+st.download_button("💾 Scarica dati filtrati in Excel", data=output,
+                   file_name="dati_filtrati.xlsx",
+                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
