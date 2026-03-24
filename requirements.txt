@@ -1,7 +1,5 @@
-streamlit>=1.24
-pandas>=2.0
-geopy>=2.3
-plotly>=5.16
-openpyxl>=3.1
-st-aggrid>=0.4.0
-streamlit-plotly-events>=0.5.0
+streamlit
+pandas
+plotly
+geopy
+openpyxl
