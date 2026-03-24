@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-import plotly.graph_objects as go
+import plotly.express as px
 import io
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_plotly_events import plotly_events
@@ -98,52 +98,33 @@ if t_max == t_min:
 else:
     df_filtrato["marker_size"] = ((df_filtrato["totale (t)"] - t_min) / (t_max - t_min) * (size_max - size_min) + size_min)
 
+# Colore: arancione base, rosso selezionato
+df_filtrato["marker_color"] = "orange"
+if st.session_state.get("selected_comune"):
+    sel = st.session_state["selected_comune"]
+    df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = "red"
+    df_filtrato.loc[df_filtrato["comune"] == sel, "marker_size"] *= 1.5
+
 # =========================
-# MAPPA
+# MAPPA CON PX EXPRESS
 # =========================
 st.write("### 🗺️ Mappa interattiva")
-fig = go.Figure()
-
 if len(df_filtrato) > 0:
-    # TRACE TUTTI GLI IMPIANTI
-    fig.add_trace(go.Scattermapbox(
-        lat=df_filtrato[lat_col].tolist(),
-        lon=df_filtrato[lon_col].tolist(),
-        mode='markers',
-        marker=go.scattermapbox.Marker(
-            size=df_filtrato["marker_size"].tolist(),
-            color='orange',
-            opacity=0.8,
-            line=dict(width=1, color='black')
-        ),
-        hoverinfo='text',
-        hovertext=df_filtrato["comune"].tolist()
-    ))
-
-    # TRACE MARKER SELEZIONATO
-    if st.session_state.get("selected_comune"):
-        sel = st.session_state["selected_comune"]
-        df_sel = df_filtrato[df_filtrato["comune"] == sel].copy()
-        df_sel["marker_size"] = df_sel["marker_size"] * 1.5
-        fig.add_trace(go.Scattermapbox(
-            lat=df_sel[lat_col].tolist(),
-            lon=df_sel[lon_col].tolist(),
-            mode='markers',
-            marker=go.scattermapbox.Marker(
-                size=df_sel["marker_size"].tolist(),
-                color='red',
-                opacity=1,
-                line=dict(width=2, color='black')
-            ),
-            hoverinfo='text',
-            hovertext=df_sel["comune"].tolist()
-        ))
-
+    fig = px.scatter_mapbox(
+        df_filtrato,
+        lat=lat_col,
+        lon=lon_col,
+        size="marker_size",
+        color="marker_color",
+        hover_name="comune",
+        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+        zoom=7,
+        height=600,
+    )
     fig.update_layout(
         mapbox_style="open-street-map",
         margin={"r":0,"t":0,"l":0,"b":0},
-        mapbox_center={"lat": lat_centro, "lon": lon_centro},
-        mapbox_zoom=7
+        mapbox_center={"lat": lat_centro, "lon": lon_centro}
     )
 
     # CLICK MAPPA → aggiorna session_state
