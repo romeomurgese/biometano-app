@@ -111,7 +111,7 @@ if len(df_filtrato) > 0:
         "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
     )
 
-    # Esempio
+# Esempio
 fig = px.scatter_mapbox(
     df_filtrato,
     lat=lat_col,
@@ -125,10 +125,6 @@ fig = px.scatter_mapbox(
     height=600
 )
 fig.update_layout(coloraxis_colorbar=dict(title="Quantità trattate"))
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        margin={"r":0,"t":0,"l":0,"b":0}
-    )
 
     st.plotly_chart(fig, use_container_width=True)
 else:
