@@ -5,3 +5,5 @@ folium
 streamlit-folium
 openpyxl
 plotly
+streamlit-plotly-events
+streamlit-aggrid
