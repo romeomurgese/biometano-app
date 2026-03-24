@@ -141,8 +141,22 @@ st.dataframe(
 # =========================
 # DOWNLOAD
 # =========================
+import io
+import streamlit as st
+import pandas as pd
+
+# Supponiamo che df_filtrato sia il tuo DataFrame filtrato
+# df_filtrato = ...
+
+# Crea un buffer in memoria
+output = io.BytesIO()
+df_filtrato.to_excel(output, index=False, engine='openpyxl')
+output.seek(0)  # Torna all'inizio del buffer
+
+# Bottone per il download in Streamlit
 st.download_button(
-    label="📥 Scarica risultati in Excel",
-    data=df_filtrato.to_excel(index=False, engine='openpyxl'),
-    file_name="impianti_filtrati.xlsx"
+    label="Scarica Excel",
+    data=output,
+    file_name="dati_filtrati.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
