@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1o0uwVDeEJxGYtfHxpNSCIQzuonMfQzMT
 """
 
-!pip install streamlit folium streamlit-folium geopy openpyxl
+#!pip install streamlit folium streamlit-folium geopy openpyxl
 
 # Commented out IPython magic to ensure Python compatibility.
 # %%writefile app.py
