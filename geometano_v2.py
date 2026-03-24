@@ -91,6 +91,6 @@ Original file is located at
 # st.write("### 📊 Tabella")
 # st.dataframe(df_filtrato, height=400)
 
-!streamlit run app.py &>/dev/null &
+#!streamlit run app.py &>/dev/null &
 
-!curl ipv4.icanhazip.com
+#!curl ipv4.icanhazip.com
