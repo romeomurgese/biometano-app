@@ -4,6 +4,7 @@ import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import plotly.express as px
+import plotly.graph_objects as go
 import io
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_plotly_events import plotly_events
@@ -35,7 +36,7 @@ df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 # FILTRI ORIZZONTALI
 # =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-col1, col2, col3, col4 = st.columns([2,2,1,1])
+col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
 
 with col1:
     tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
@@ -86,57 +87,55 @@ df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 col1, col2, col3 = st.columns(3)
 col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
-col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato)>0 else "-")
+col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
 # =========================
 # MAPPA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
+
 if len(df_filtrato) > 0:
-    df_filtrato["info"] = (
-        "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
-        "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
-        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km" +
-        "<br>♻️ Totale trattato (t): " + df_filtrato["totale (t)"].astype(str)
+    # BASE TRACE TUTTI I MARKER
+    base_trace = px.scatter_mapbox(
+        df_filtrato,
+        lat=lat_col,
+        lon=lon_col,
+        size="totale (t)",
+        color="totale (t)",
+        color_continuous_scale="Oranges",
+        size_max=25,
+        hover_name="comune",
+        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+        zoom=7,
+        height=600
     )
 
-    df_filtrato["marker_size"] = df_filtrato["totale (t)"]
-    df_filtrato["marker_color"] = df_filtrato["totale (t)"]
-    df_filtrato["marker_opacity"] = 0.8
+    fig = go.Figure(base_trace.data)
+    fig.update_traces(marker=dict(opacity=0.8, line=dict(width=1, color="black")))
 
+    # TRACE PER IL MARKER SELEZIONATO
     if st.session_state.get("selected_comune"):
         sel = st.session_state["selected_comune"]
-        df_filtrato.loc[df_filtrato["comune"] == sel, "marker_size"] = df_filtrato["totale (t)"].max() * 1.5
-        df_filtrato.loc[df_filtrato["comune"] == sel, "marker_opacity"] = 1
-        df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = df_filtrato["totale (t)"].max()
+        df_sel = df_filtrato[df_filtrato["comune"] == sel]
+        fig.add_trace(go.Scattermapbox(
+            lat=df_sel[lat_col],
+            lon=df_sel[lon_col],
+            mode='markers',
+            marker=go.scattermapbox.Marker(
+                size=df_sel["totale (t)"]*1.5,
+                color='red',
+                opacity=1,
+                line=dict(width=2, color='black')
+            ),
+            hoverinfo='text',
+            hovertext=df_sel["comune"]
+        ))
 
-   fig = px.scatter_mapbox(
-    df_filtrato,
-    lat=lat_col,
-    lon=lon_col,
-    size="marker_size",
-    color="marker_color",
-    color_continuous_scale="Oranges",
-    size_max=25,
-    hover_name="comune",
-    hover_data={"distanza_km": True, lat_col: False, lon_col: False},
-    zoom=7,
-    height=600
-)
-
-# Imposta linea nera e opacity per tutti i marker
-fig.update_traces(
-    marker=dict(
-        opacity=0.8,   # usa valore singolo
-        line=dict(width=1, color="black")
-    )
-)    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
+    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
                       coloraxis_colorbar=dict(title="Totale trattato (t)"))
 
-    # =========================
     # CLICK MAPPA → aggiorna session_state
-    # =========================
-    selected_points = plotly_events(fig, click_event=True, hover_event=False)
+    selected_points = plotly_events(fig, click_event=True)
     if selected_points:
         st.session_state["selected_comune"] = selected_points[0]["hovertext"]
 
@@ -163,9 +162,7 @@ grid_response = AgGrid(
     fit_columns_on_grid_load=True
 )
 
-# =========================
 # CLICK TABELLA → aggiorna session_state
-# =========================
 selected_rows = grid_response['selected_rows']
 if selected_rows:
     st.session_state["selected_comune"] = selected_rows[0]['comune']
