@@ -5,7 +5,6 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import plotly.express as px
 import io
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # =========================
 # CONFIG
@@ -23,9 +22,11 @@ def load_data():
     return df
 
 df = load_data()
+
 if "totale (t)" not in df.columns:
     st.error("Colonna 'totale (t)' mancante!")
     st.stop()
+
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
@@ -33,6 +34,7 @@ df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 # =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
 col1, col2, col3, col4 = st.columns([2,2,1,1])
+
 with col1:
     tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
 with col2:
@@ -63,7 +65,7 @@ if lat_col not in df.columns or lon_col not in df.columns:
     st.stop()
 
 # =========================
-# DISTANZA
+# CALCOLO DISTANZA
 # =========================
 def calcola_distanza(row):
     return geodesic((lat_centro, lon_centro), (row[lat_col], row[lon_col])).km
@@ -88,7 +90,7 @@ col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if l
 # MENU SELEZIONE (simula click mappa)
 # =========================
 impianti_list = df_filtrato["comune"].unique().tolist()
-selected_comune = st.selectbox("📌 Seleziona impianto per evidenziazione (simula click mappa)", ["Tutti"] + impianti_list)
+selected_comune = st.selectbox("📌 Seleziona impianto per evidenziazione", ["Tutti"] + impianti_list)
 if selected_comune != "Tutti":
     st.session_state["selected_comune"] = selected_comune
 else:
@@ -137,16 +139,7 @@ df_tabella = df_filtrato.copy()
 if st.session_state.get("selected_comune"):
     df_tabella = df_tabella[df_tabella["comune"] == st.session_state["selected_comune"]]
 
-gb = GridOptionsBuilder.from_dataframe(df_tabella)
-gb.configure_selection(selection_mode="single", use_checkbox=True)
-grid_options = gb.build()
-grid_response = AgGrid(df_tabella, gridOptions=grid_options, update_mode=GridUpdateMode.SELECTION_CHANGED, height=400, fit_columns_on_grid_load=True)
-
-# Click tabella → evidenzia mappa
-selected_rows = grid_response['selected_rows']
-if selected_rows:
-    st.session_state["selected_comune"] = selected_rows[0]['comune']
-    st.experimental_rerun()
+st.dataframe(df_tabella.sort_values("distanza_km"), height=400, use_container_width=True)
 
 # =========================
 # DOWNLOAD EXCEL
