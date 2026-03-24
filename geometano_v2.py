@@ -98,10 +98,6 @@ col3.metric(
 # =========================
 # MAPPA
 # =========================
-# =========================
-# =========================
-# MAPPA
-# =========================
 st.write("### 🗺️ Mappa interattiva")
 
 if len(df_filtrato) > 0:
@@ -111,22 +107,28 @@ if len(df_filtrato) > 0:
         "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
     )
 
-# Esempio
-fig = px.scatter_mapbox(
-    df_filtrato,
-    lat=lat_col,
-    lon=lon_col,
-    color="quantita_rifiuti",  # colore basato sulle quantità trattate
-    size="distanza_km",         # dimensione marker opzionale, o fissa
-    color_continuous_scale="YlOrRd",  # giallo → rosso
-    hover_name="comune",
-    hover_data={"distanza_km": True, lat_col: False, lon_col: False},
-    zoom=7,
-    height=600
-)
-fig.update_layout(coloraxis_colorbar=dict(title="Quantità trattate"))
+    fig = px.scatter_mapbox(
+        df_filtrato,
+        lat=lat_col,
+        lon=lon_col,
+        color="quantita_rifiuti",       # colore marker basato sulle quantità
+        size="distanza_km",             # dimensione marker opzionale
+        color_continuous_scale="YlOrRd",
+        hover_name="comune",
+        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+        zoom=7,
+        height=600
+    )
 
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_traces(marker=dict(opacity=0.7))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        margin={"r":0,"t":0,"l":0,"b":0},
+        coloraxis_colorbar=dict(title="Quantità trattate")
+    )
+
+    st.plotly_chart(fig, use_container_width=True)  # <-- stessa indentazione del blocco if
 else:
     st.warning("Nessun impianto trovato nel raggio selezionato.")
 # =========================
