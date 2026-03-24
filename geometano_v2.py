@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
-import plotly.graph_objects as go
+import plotly.express as px
 import io
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 from streamlit_plotly_events import plotly_events
@@ -63,41 +63,34 @@ col1.metric("Impianti trovati", len(df_filtrato))
 col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
-# COSTRUZIONE FIGURA CON GO.FIGURE
+# MAPPA SEMPLICE
 st.write("### 🗺️ Mappa interattiva")
-fig = go.Figure()
+if len(df_filtrato) > 0:
+    df_filtrato["hover_info"] = (
+        "📍 Comune: " + df_filtrato["comune"].astype(str) +
+        "<br>🏭 Tipo: " + df_filtrato["tipologia"].astype(str) +
+        "<br>♻️ Totale trattato: " + df_filtrato["totale (t)"].astype(str) +
+        "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km"
+    )
 
-for idx, row in df_filtrato.iterrows():
-    marker_color = "red" if st.session_state.get("selected_comune") == row["comune"] else "orange"
-    fig.add_trace(go.Scattermapbox(
-        lat=[row[lat_col]],
-        lon=[row[lon_col]],
-        mode="markers+text",
-        marker=go.scattermapbox.Marker(
-            size=20,
-            color=marker_color,
-            line=dict(width=1, color="black")
-        ),
-        text=f"{row['totale (t)']:.0f} t\n{row['distanza_km']:.1f} km",
-        textposition="top center",
-        hoverinfo="text",
-        name=row["comune"]
-    ))
+    fig = px.scatter_mapbox(
+        df_filtrato,
+        lat=lat_col,
+        lon=lon_col,
+        size="totale (t)",
+        color="totale (t)",
+        hover_name="comune",
+        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+        color_continuous_scale="Oranges",
+        size_max=25,
+        zoom=7,
+        height=600
+    )
 
-fig.update_layout(
-    mapbox_style="open-street-map",
-    mapbox_center={"lat": lat_centro, "lon": lon_centro},
-    mapbox_zoom=7,
-    margin=dict(r=0, t=0, l=0, b=0),
-    showlegend=False
-)
-
-# CLICK MAPPA
-selected_points = plotly_events(fig, click_event=True, hover_event=False)
-if selected_points:
-    st.session_state["selected_comune"] = selected_points[0]["name"]
-
-st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0})
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("Nessun impianto trovato nel raggio selezionato.")
 
 # TABELLA INTERATTIVA
 st.write("### 📊 Tabella impianti")
