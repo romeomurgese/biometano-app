@@ -8,7 +8,7 @@ import plotly.express as px
 # CONFIG
 st.set_page_config(layout="wide")
 
-st.title("🌱 Impianti Biometano in Italia")
+st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
 # =========================
 # LOAD DATA
