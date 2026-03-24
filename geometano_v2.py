@@ -23,13 +23,13 @@ def load_data():
 
 df = load_data()
 
-# Controlla colonna quantità rifiuti
-if "quantita_rifiuti" not in df.columns:
-    st.error("Colonna 'quantita_rifiuti' mancante! Controlla il tuo Excel.")
+# Controlla colonna 'totale (t)'
+if "totale (t)" not in df.columns:
+    st.error("Colonna 'totale (t)' mancante! Controlla il tuo Excel.")
     st.stop()
 
 # Assicurati che sia numerica e senza NaN
-df["quantita_rifiuti"] = pd.to_numeric(df["quantita_rifiuti"], errors='coerce').fillna(0)
+df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
 # FILTRI ORIZZONTALI
@@ -119,15 +119,15 @@ if len(df_filtrato) > 0:
         "📍 Comune: " + df_filtrato.get("comune", "").astype(str) +
         "<br>🏭 Tipo: " + df_filtrato.get("tipologia", "N/A").astype(str) +
         "<br>📏 Distanza: " + df_filtrato["distanza_km"].astype(str) + " km" +
-        "<br>♻️ Quantità trattata: " + df_filtrato["quantita_rifiuti"].astype(str)
+        "<br>♻️ Totale trattato (t): " + df_filtrato["totale (t)"].astype(str)
     )
 
     fig = px.scatter_mapbox(
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="quantita_rifiuti",
-        size="distanza_km",
+        color="totale (t)",           # colore basato sulle quantità trattate
+        size="distanza_km",           # dimensione marker proporzionale alla distanza
         color_continuous_scale="YlOrRd",
         hover_name="comune",
         hover_data={"distanza_km": True, lat_col: False, lon_col: False},
@@ -140,7 +140,7 @@ if len(df_filtrato) > 0:
     fig.update_layout(
         mapbox_style="open-street-map",
         margin={"r":0,"t":0,"l":0,"b":0},
-        coloraxis_colorbar=dict(title="Quantità trattata")
+        coloraxis_colorbar=dict(title="Totale trattato (t)")
     )
 
     st.plotly_chart(fig, use_container_width=True)
