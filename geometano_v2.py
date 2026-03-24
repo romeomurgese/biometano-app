@@ -93,7 +93,7 @@ st.write("### 🗺️ Mappa interattiva")
 fig = go.Figure()
 
 if len(df_filtrato) > 0:
-    # TRACE TUTTI GLI IMPIANTI
+# TRACE TUTTI GLI IMPIANTI
 fig.add_trace(go.Scattermapbox(
     lat=df_filtrato[lat_col].tolist(),
     lon=df_filtrato[lon_col].tolist(),
