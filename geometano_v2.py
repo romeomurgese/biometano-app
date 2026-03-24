@@ -110,22 +110,27 @@ if len(df_filtrato) > 0:
         df_filtrato.loc[df_filtrato["comune"] == sel, "marker_opacity"] = 1
         df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = df_filtrato["totale (t)"].max()
 
-    fig = px.scatter_mapbox(
-        df_filtrato,
-        lat=lat_col,
-        lon=lon_col,
-        size="marker_size",
-        color="marker_color",
-        color_continuous_scale="Oranges",
-        size_max=25,
-        hover_name="comune",
-        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
-        zoom=7,
-        height=600
-    )
-    fig.update_traces(marker=dict(opacity=df_filtrato["marker_opacity"], line=dict(width=1,color="black")))
+   fig = px.scatter_mapbox(
+    df_filtrato,
+    lat=lat_col,
+    lon=lon_col,
+    size="marker_size",
+    color="marker_color",
+    color_continuous_scale="Oranges",
+    size_max=25,
+    hover_name="comune",
+    hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+    zoom=7,
+    height=600
+)
 
-    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
+# Imposta linea nera e opacity per tutti i marker
+fig.update_traces(
+    marker=dict(
+        opacity=0.8,   # usa valore singolo
+        line=dict(width=1, color="black")
+    )
+)    fig.update_layout(mapbox_style="open-street-map", margin={"r":0,"t":0,"l":0,"b":0},
                       coloraxis_colorbar=dict(title="Totale trattato (t)"))
 
     # =========================
