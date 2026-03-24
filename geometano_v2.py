@@ -24,9 +24,12 @@ def load_data():
     return df
 
 df = load_data()
+
+# Controllo colonna Totale rifiuti
 if "totale (t)" not in df.columns:
     st.error("Colonna 'totale (t)' mancante!")
     st.stop()
+
 df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
 
 # =========================
@@ -87,16 +90,21 @@ col2.metric("Raggio selezionato", f"{raggio_km} km")
 col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km" if len(df_filtrato) > 0 else "-")
 
 # =========================
-# MARKER STANDARD PIU VISIBILI
+# PREPARO MARKER PER MAPPA
 # =========================
-marker_size = 15  # dimensione fissa, visibile
+marker_size = 15  # dimensione fissa
 df_filtrato["marker_color"] = "orange"
 if st.session_state.get("selected_comune"):
     sel = st.session_state["selected_comune"]
     df_filtrato.loc[df_filtrato["comune"] == sel, "marker_color"] = "red"
 
+# Etichette con tonnellate e distanza
+df_filtrato["marker_label"] = df_filtrato.apply(
+    lambda r: f"{r['totale (t)']:.0f} t\n{r['distanza_km']:.1f} km", axis=1
+)
+
 # =========================
-# MAPPA CON PX EXPRESS
+# MAPPA INTERATTIVA
 # =========================
 st.write("### 🗺️ Mappa interattiva")
 if len(df_filtrato) > 0:
@@ -104,14 +112,18 @@ if len(df_filtrato) > 0:
         df_filtrato,
         lat=lat_col,
         lon=lon_col,
-        color="marker_color",
-        size_max=marker_size,
         hover_name="comune",
-        hover_data={"distanza_km": True, lat_col: False, lon_col: False},
+        hover_data={"totale (t)": True, "distanza_km": True, lat_col: False, lon_col: False},
+        color="marker_color",
+        size=None,
         zoom=7,
-        height=600
+        height=600,
+        text="marker_label"
     )
-    fig.update_traces(marker=dict(size=marker_size, line=dict(width=1, color="black")))
+    fig.update_traces(
+        marker=dict(size=marker_size, line=dict(width=1, color="black")),
+        textposition="top center"
+    )
 
     fig.update_layout(
         mapbox_style="open-street-map",
