@@ -70,7 +70,13 @@ df_filtrato = df[df["distanza_km"] <= raggio_km]
 
 # INFO
 st.write(f"### Impianti trovati: {len(df_filtrato)}")
+df_filtrato["descrizione"] = (
+    "Comune: " + df_filtrato["comune"].astype(str) +
+    "<br>Tipo: " + df_filtrato.get("tipologia", "").astype(str) +
+    "<br>Distanza: " + df_filtrato["distanza_km"].round(1).astype(str) + " km"
+)
 
+df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
 # MAPPA
 import plotly.express as px
 
