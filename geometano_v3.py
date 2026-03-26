@@ -58,6 +58,11 @@ df = load_data()
 def load_comuni():
     url_comuni = "https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json"
     comuni = pd.read_json(url_comuni)
+    
+    # estrai coordinate dal JSON
+    comuni["lat"] = comuni["coordinate"].apply(lambda x: x["lat"])
+    comuni["lng"] = comuni["coordinate"].apply(lambda x: x["lng"])
+    
     comuni["nome"] = comuni["nome"].str.strip().str.lower()
     return comuni
 
