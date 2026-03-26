@@ -89,8 +89,8 @@ if match.empty:
 
 row_comune = match.iloc[0]
 
-lat_centro = row_comune["latitudine"]
-lon_centro = row_comune["longitudine"]
+lat_centro = row_comune["lat"]
+lon_centro = row_comune["lng"]
 
 # =========================
 # CALCOLO DISTANZE
