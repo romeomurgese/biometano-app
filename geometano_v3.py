@@ -28,7 +28,7 @@ def haversine(lat1, lon1, lat2, lon2):
 @st.cache_data
 def load_data():
     # 🔹 Inserisci qui il tuo link raw corretto del file Excel su GitHub
-    github_url = "https://raw.githubusercontent.com/TUO_USERNAME/NOME_REPO/main/impianti_geocodificati.xlsx"
+    github_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
     
     try:
         r = requests.get(github_url)
