@@ -52,16 +52,17 @@ df = load_data()
 # COMUNI ITALIANI (CSV)
 # =========================
 @st.cache_data
-def load_comuni_csv():
-    url = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/csv/comuni.csv"
-    r = requests.get(url)
-    r.raise_for_status()
-    df = pd.read_csv(io.StringIO(r.text))
-    df["nome"] = df["nome"].str.lower().str.strip()
+def load_comuni_istat():
+    url = "https://www.istat.it/storage/cartografia/comuni/Comuni.csv"
+    df = pd.read_csv(url, sep=';', encoding='latin1')
+    df["nome"] = df["DENOM_COM"].str.lower().str.strip()
+    df["lat"] = df["LAT"].astype(float)
+    df["lng"] = df["LON"].astype(float)
     return df
 
-df_comuni = load_comuni_csv()
+df_comuni = load_comuni_istat()
 lista_comuni = df_comuni["nome"].sort_values().unique()
+st.write(f"Totale comuni caricati: {len(lista_comuni)}")
 
 # =========================
 # UI
