@@ -5,6 +5,12 @@ import plotly.express as px
 from math import radians, cos, sin, asin, sqrt
 import io
 
+uploaded_file = st.file_uploader("Carica file geocodificato", type="xlsx")
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
+    st.write(df.head())
+else:
+    st.warning("⚠️ Carica il file Excel geocodificato per continuare")
 st.set_page_config(layout="wide")
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
