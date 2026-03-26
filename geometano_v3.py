@@ -31,12 +31,12 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# CARICAMENTO DATI IMPIANTI (GITHUB)
+# DATI IMPIANTI (GITHUB)
 # =========================
 @st.cache_data
 def load_data():
-    github_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
-    r = requests.get(github_url)
+    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
+    r = requests.get(url)
     r.raise_for_status()
     df = pd.read_excel(io.BytesIO(r.content))
     df.columns = df.columns.str.lower()
@@ -49,44 +49,50 @@ def load_data():
 df = load_data()
 
 # =========================
-# CARICAMENTO COMUNI ITALIANI
+# COMUNI ITALIANI (GEOJSON)
 # =========================
 @st.cache_data
 def load_comuni():
-    url_comuni = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.csv"
-    comuni = pd.read_csv(url_comuni, usecols=["nome","lat","lng"])
-    comuni = comuni.dropna(subset=["nome","lat","lng"])
-    comuni["nome"] = comuni["nome"].astype(str).str.strip().str.lower()
+    url_geojson = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
+    r = requests.get(url_geojson)
+    r.raise_for_status()
+    data = r.json()
+    records = []
+
+    for feature in data["features"]:
+        nome = feature["properties"]["name"]
+        # estrai coordinate centrali (approssimazione dal primo punto del poligono)
+        coords = feature["geometry"]["coordinates"]
+        if feature["geometry"]["type"] == "Polygon":
+            lon, lat = coords[0][0]
+        elif feature["geometry"]["type"] == "MultiPolygon":
+            lon, lat = coords[0][0][0]
+        else:
+            continue
+
+        records.append({
+            "nome": nome.strip().lower(),
+            "lat": lat,
+            "lng": lon
+        })
+
+    comuni = pd.DataFrame(records)
     return comuni
 
 df_comuni = load_comuni()
-
-# lista comuni
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# SELEZIONE COMUNE E RAGGIO
+# UI
 # =========================
 col1, col2 = st.columns(2)
-
 with col1:
     comune_sel = st.selectbox("📍 Comune di gara", lista_comuni)
-
 with col2:
     raggio_km = st.slider("📏 Raggio impianti (km)", 1, 200, 50)
 
-# pulizia valore
-if comune_sel is None or comune_sel == "":
-    st.error("❌ Nessun comune selezionato")
-    st.stop()
-
 comune_sel_clean = str(comune_sel).strip().lower()
-
-# =========================
-# LAT/LON COMUNE
-# =========================
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
-
 if match.empty:
     st.error("❌ Comune non trovato")
     st.stop()
@@ -98,11 +104,7 @@ lon_centro = row_comune["lng"]
 # =========================
 # CALCOLO DISTANZE
 # =========================
-df["distanza_km"] = df.apply(
-    lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]),
-    axis=1
-).round(1)
-
+df["distanza_km"] = df.apply(lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1).round(1)
 df_filtrato = df[df["distanza_km"] <= raggio_km]
 
 st.write(f"🔎 Impianti trovati nel raggio: {len(df_filtrato)}")
@@ -128,7 +130,6 @@ fig = px.scatter_mapbox(
     height=600
 )
 
-# cerchio raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
@@ -138,8 +139,6 @@ fig.add_trace(go.Scattermapbox(
     line=dict(color='green', width=2),
     name=f"Raggio {raggio_km} km"
 ))
-
-# punto comune
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
@@ -156,6 +155,5 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 st.subheader("📋 Impianti partecipanti")
 colonne_visibili = ["comune","tipologia","totale (t)","distanza_km"]
-
 if not df_filtrato.empty:
     st.dataframe(df_filtrato[colonne_visibili])
