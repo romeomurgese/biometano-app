@@ -31,12 +31,12 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# CARICAMENTO DATI IMPIANTI (GITHUB)
+# DATI IMPIANTI (GITHUB)
 # =========================
 @st.cache_data
 def load_data():
-    github_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
-    r = requests.get(github_url)
+    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
+    r = requests.get(url)
     r.raise_for_status()
 
     df = pd.read_excel(io.BytesIO(r.content))
@@ -52,40 +52,39 @@ def load_data():
 df = load_data()
 
 # =========================
-# CARICAMENTO COMUNI ITALIANI
+# COMUNI ITALIANI (DATASET STABILE)
 # =========================
 @st.cache_data
 def load_comuni():
-    url_comuni = "https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json"
-    comuni = pd.read_json(url_comuni)
-    
-    # estrai coordinate dal JSON
-    comuni["lat"] = comuni["coordinate"].apply(lambda x: x["lat"])
-    comuni["lng"] = comuni["coordinate"].apply(lambda x: x["lng"])
-    
-    comuni["nome"] = comuni["nome"].str.strip().str.lower()
+    url = "https://raw.githubusercontent.com/napo/geodata/master/italy/comuni.csv"
+    comuni = pd.read_csv(url)
+
+    comuni["nome"] = comuni["comune"].str.strip().str.lower()
+    comuni["lat"] = pd.to_numeric(comuni["lat"], errors='coerce')
+    comuni["lng"] = pd.to_numeric(comuni["lng"], errors='coerce')
+
     return comuni
 
 df_comuni = load_comuni()
 
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
+# =========================
 # UI
+# =========================
 col1, col2 = st.columns(2)
 
 with col1:
-    comune_sel = st.selectbox(
-        "📍 Comune di gara",
-        lista_comuni
-    )
+    comune_sel = st.selectbox("📍 Comune di gara", lista_comuni)
 
 with col2:
     raggio_km = st.slider("📏 Raggio impianti (km)", 1, 200, 50)
 
 # =========================
-# LAT/LON COMUNE SELEZIONATO
+# LAT/LON COMUNE
 # =========================
 comune_sel_clean = comune_sel.strip().lower()
+
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
 
 if match.empty:
@@ -132,7 +131,7 @@ fig = px.scatter_mapbox(
     height=600
 )
 
-# Cerchio raggio
+# cerchio raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
@@ -143,7 +142,7 @@ fig.add_trace(go.Scattermapbox(
     name=f"Raggio {raggio_km} km"
 ))
 
-# Punto comune
+# punto comune
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
@@ -157,7 +156,7 @@ fig.update_layout(mapbox_style="open-street-map")
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# TABELLA (PULITA)
+# TABELLA
 # =========================
 st.subheader("📋 Impianti partecipanti")
 
