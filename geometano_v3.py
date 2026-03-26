@@ -96,8 +96,8 @@ def geocode_comune(comune):
 #lat_centro, lon_centro = geocode_comune(comune_sel)
 row_comune = df_comuni[df_comuni["nome"] == comune_sel].iloc[0]
 
-lat_centro = row_comune["lat"]
-lon_centro = row_comune["lng"]
+lat_centro = row_comune["latitudine"]
+lon_centro = row_comune["longitudine"]
 
 if lat_centro is None or lon_centro is None:
     st.error("❌ Non è stato possibile geocodificare il comune selezionato.")
