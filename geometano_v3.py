@@ -14,7 +14,6 @@ st.title("🌱 Simulatore gara impianti trattamento rifiuti in Italia")
 # FUNZIONI
 # =========================
 def haversine(lat1, lon1, lat2, lon2):
-    """Calcola distanza in km tra due coordinate"""
     R = 6371
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
@@ -22,7 +21,6 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * asin(sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
-    """Coordinate per disegnare un cerchio sulla mappa"""
     lat_circle = []
     lon_circle = []
     for theta in np.linspace(0, 2*np.pi, n_points):
@@ -33,12 +31,12 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# DATI IMPIANTI (GITHUB)
+# CARICAMENTO DATI IMPIANTI (GITHUB)
 # =========================
 @st.cache_data
 def load_data():
-    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
-    r = requests.get(url)
+    github_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
+    r = requests.get(github_url)
     r.raise_for_status()
     df = pd.read_excel(io.BytesIO(r.content))
     df.columns = df.columns.str.lower()
@@ -51,24 +49,23 @@ def load_data():
 df = load_data()
 
 # =========================
-# COMUNI ITALIANI (CSV STABILE)
+# CARICAMENTO COMUNI ITALIANI
 # =========================
 @st.cache_data
 def load_comuni():
-    url = "https://raw.githubusercontent.com/romeomurgese/comuni-italiani/main/comuni.csv"
-    try:
-        comuni = pd.read_csv(url)
-        comuni["nome"] = comuni["nome"].str.strip().str.lower()
-        return comuni
-    except Exception as e:
-        st.error(f"❌ Errore nel caricamento dei comuni: {e}")
-        return pd.DataFrame(columns=["nome", "lat", "lng"])
+    url_comuni = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.csv"
+    comuni = pd.read_csv(url_comuni, usecols=["nome","lat","lng"])
+    comuni = comuni.dropna(subset=["nome","lat","lng"])
+    comuni["nome"] = comuni["nome"].astype(str).str.strip().str.lower()
+    return comuni
 
 df_comuni = load_comuni()
+
+# lista comuni
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# UI: selezione comune e raggio
+# SELEZIONE COMUNE E RAGGIO
 # =========================
 col1, col2 = st.columns(2)
 
@@ -78,10 +75,16 @@ with col1:
 with col2:
     raggio_km = st.slider("📏 Raggio impianti (km)", 1, 200, 50)
 
+# pulizia valore
+if comune_sel is None or comune_sel == "":
+    st.error("❌ Nessun comune selezionato")
+    st.stop()
+
+comune_sel_clean = str(comune_sel).strip().lower()
+
 # =========================
-# LAT/LON DEL COMUNE SELEZIONATO
+# LAT/LON COMUNE
 # =========================
-comune_sel_clean = comune_sel.strip().lower()
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
 
 if match.empty:
@@ -101,6 +104,7 @@ df["distanza_km"] = df.apply(
 ).round(1)
 
 df_filtrato = df[df["distanza_km"] <= raggio_km]
+
 st.write(f"🔎 Impianti trovati nel raggio: {len(df_filtrato)}")
 if df_filtrato.empty:
     st.warning("⚠️ Nessun impianto trovato nel raggio selezionato")
@@ -118,7 +122,7 @@ fig = px.scatter_mapbox(
     size="totale (t)",
     color="totale (t)",
     hover_name="comune",
-    hover_data=["tipologia", "totale (t)", "distanza_km"],
+    hover_data=["tipologia","totale (t)","distanza_km"],
     center={"lat": lat_centro, "lon": lon_centro},
     zoom=7,
     height=600
@@ -151,10 +155,7 @@ st.plotly_chart(fig, use_container_width=True)
 # TABELLA IMPIANTI
 # =========================
 st.subheader("📋 Impianti partecipanti")
-colonne_visibili = ["comune", "tipologia", "totale (t)", "distanza_km"]
-
-if not df_filtrato.empty:
-    st.dataframe(df_filtrato[colonne_visibili])
+colonne_visibili = ["comune","tipologia","totale (t)","distanza_km"]
 
 if not df_filtrato.empty:
     st.dataframe(df_filtrato[colonne_visibili])
