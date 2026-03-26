@@ -56,15 +56,31 @@ df = load_data()
 # =========================
 @st.cache_data
 def load_comuni():
-    url = "https://raw.githubusercontent.com/napo/geodata/master/italy/comuni.csv"
-    comuni = pd.read_csv(url)
+    url = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
 
-    comuni["nome"] = comuni["comune"].str.strip().str.lower()
-    comuni["lat"] = pd.to_numeric(comuni["lat"], errors='coerce')
-    comuni["lng"] = pd.to_numeric(comuni["lng"], errors='coerce')
+    r = requests.get(url)
+    r.raise_for_status()
 
+    data = r.json()
+
+    records = []
+
+    for feature in data["features"]:
+        nome = feature["properties"]["name"]
+        coords = feature["geometry"]["coordinates"]
+
+        # coordinate = [lon, lat]
+        lon = coords[0]
+        lat = coords[1]
+
+        records.append({
+            "nome": nome.strip().lower(),
+            "lat": lat,
+            "lng": lon
+        })
+
+    comuni = pd.DataFrame(records)
     return comuni
-
 df_comuni = load_comuni()
 
 lista_comuni = df_comuni["nome"].sort_values().unique()
