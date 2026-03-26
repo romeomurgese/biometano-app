@@ -49,44 +49,18 @@ def load_data():
 df = load_data()
 
 # =========================
-# COMUNI ITALIANI (GEOJSON)
+# COMUNI ITALIANI (CSV)
 # =========================
 @st.cache_data
-def load_comuni():
-    import os
-    import json
+def load_comuni_csv():
+    url = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/csv/comuni.csv"
+    r = requests.get(url)
+    r.raise_for_status()
+    df = pd.read_csv(io.StringIO(r.text))
+    df["nome"] = df["nome"].str.lower().str.strip()
+    return df
 
-    url_geojson = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
-
-    try:
-        r = requests.get(url_geojson, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-    except Exception as e:
-        st.warning(f"⚠️ Non è stato possibile scaricare i comuni da GitHub: {e}")
-        # fallback locale: assicurati di avere un file 'comuni.geojson' nella cartella del progetto
-        if os.path.exists("comuni.geojson"):
-            with open("comuni.geojson", "r", encoding="utf-8") as f:
-                data = json.load(f)
-        else:
-            st.error("❌ Nessun file locale disponibile. Impossibile continuare.")
-            st.stop()
-
-    records = []
-    for feature in data["features"]:
-        nome = feature["properties"]["name"]
-        coords = feature["geometry"]["coordinates"]
-        if feature["geometry"]["type"] == "Polygon":
-            lon, lat = coords[0][0]
-        elif feature["geometry"]["type"] == "MultiPolygon":
-            lon, lat = coords[0][0][0]
-        else:
-            continue
-        records.append({"nome": nome.strip().lower(), "lat": lat, "lng": lon})
-
-    comuni = pd.DataFrame(records)
-    return comuni
-df_comuni = load_comuni()
+df_comuni = load_comuni_csv()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
@@ -111,7 +85,9 @@ lon_centro = row_comune["lng"]
 # =========================
 # CALCOLO DISTANZE
 # =========================
-df["distanza_km"] = df.apply(lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1).round(1)
+df["distanza_km"] = df.apply(
+    lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1
+).round(1)
 df_filtrato = df[df["distanza_km"] <= raggio_km]
 
 st.write(f"🔎 Impianti trovati nel raggio: {len(df_filtrato)}")
