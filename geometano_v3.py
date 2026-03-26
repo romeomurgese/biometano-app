@@ -3,8 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from math import radians, cos, sin, asin, sqrt
-import io
-import requests
 import numpy as np
 
 st.set_page_config(layout="wide")
@@ -31,14 +29,12 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# DATI IMPIANTI (GITHUB)
+# CARICA DATI IMPIANTI
 # =========================
 @st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
-    r = requests.get(url)
-    r.raise_for_status()
-    df = pd.read_excel(io.BytesIO(r.content))
+    df = pd.read_excel(url)
     df.columns = df.columns.str.lower()
     df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(1)
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
@@ -49,21 +45,17 @@ def load_data():
 df = load_data()
 
 # =========================
-# COMUNI ITALIANI (CSV)
+# CARICA COMUNI DA CSV GITHUB
 # =========================
 @st.cache_data
-def load_comuni_istat():
-    url = "https://www.istat.it/storage/cartografia/comuni/Comuni.csv"
-    df = pd.read_csv(url, sep=';', encoding='latin1')
-    df["nome"] = df["DENOM_COM"].str.lower().str.strip()
-    df["lat"] = df["LAT"].astype(float)
-    df["lng"] = df["LON"].astype(float)
+def load_comuni():
+    url = "https://raw.githubusercontent.com/TUOUSERNAME/TUOREPO/main/comuni.csv"
+    df = pd.read_csv(url)
+    df["nome"] = df["nome"].str.lower().str.strip()
     return df
 
-df_comuni = load_comuni_istat()
+df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
-
-st.write(f"Totale comuni caricati: {len(lista_comuni)}")
 
 # =========================
 # UI
