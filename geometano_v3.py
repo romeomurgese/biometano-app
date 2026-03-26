@@ -51,7 +51,6 @@ df = load_data()
 # =========================
 # COMUNI ITALIANI (CSV)
 # =========================
-@st.cache_data
 import requests, json
 
 url_geojson = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
