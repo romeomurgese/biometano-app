@@ -41,7 +41,7 @@ def circle_coords(lat, lon, r_km, n_points=100):
 # =========================
 @st.cache_data
 def load_data():
-    github_url = "https://raw.githubusercontent.com/TUO_USERNAME/NOME_REPO/main/impianti_geocodificati.xlsx"
+    github_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
     try:
         r = requests.get(github_url)
         r.raise_for_status()
