@@ -1,176 +1,88 @@
-# -*- coding: utf-8 -*-
+# app.py
 import streamlit as st
 import pandas as pd
-from geopy.geocoders import Nominatim
-from geopy.distance import geodesic
 import plotly.express as px
+from math import radians, cos, sin, asin, sqrt
 import io
 
-# =========================
-# CONFIG
-# =========================
 st.set_page_config(layout="wide")
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
 
 # =========================
-# LOAD DATA
+# CARICAMENTO DATI
 # =========================
 @st.cache_data
 def load_data():
-    df = pd.read_excel("impianti.xlsx")
+    df = pd.read_excel("impianti_geocodificati.xlsx")
     df.columns = df.columns.str.lower()
+    df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors="coerce").fillna(0)
     return df
 
 df = load_data()
 
-if "totale (t)" not in df.columns:
-    st.error("Colonna 'totale (t)' mancante!")
-    st.stop()
-
-df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(0)
-
 # =========================
-# FILTRI ORIZZONTALI
+# FILTRI
 # =========================
 tipologie = df["tipologia"].dropna().unique().tolist()
-
 col1, col2, col3 = st.columns([2,2,1])
 
 with col1:
-    tipologia_selezionata = st.multiselect(
-        "Tipologia impianti",
-        options=tipologie,
-        default=tipologie
-    )
+    tipologia_selezionata = st.multiselect("Tipologia impianti", options=tipologie, default=tipologie)
+
+comuni_ref = df[["comune", "latitudine", "longitudine"]].drop_duplicates()
 
 with col2:
-    comune_input = st.text_input("Comune di riferimento", "Milano")
+    comune_sel = st.selectbox("Comune di riferimento", comuni_ref["comune"].unique())
 
 with col3:
     raggio_km = st.slider("Raggio (km)", 1, 100, 20)
 
-# =========================
-# GEOLOCALIZZAZIONE
-# =========================
-geolocator = Nominatim(user_agent="biometano_app")
-location = geolocator.geocode(comune_input + ", Italia")
-
-if location is None:
-    st.error("Comune non trovato")
-    st.stop()
-
-lat_centro = location.latitude
-lon_centro = location.longitude
-
-lat_col = "latitudine"
-lon_col = "longitudine"
-
-if lat_col not in df.columns or lon_col not in df.columns:
-    st.error("Colonne latitudine/longitudine mancanti")
-    st.stop()
+row_sel = comuni_ref[comuni_ref["comune"] == comune_sel].iloc[0]
+lat_centro = row_sel["latitudine"]
+lon_centro = row_sel["longitudine"]
 
 # =========================
-# CALCOLO DISTANZA
+# DISTANZA (Haversine)
 # =========================
-df["distanza_km"] = df.apply(
-    lambda r: geodesic((lat_centro, lon_centro), (r[lat_col], r[lon_col])).km,
-    axis=1
-).round(1)
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
+    return 2 * R * asin(sqrt(a))
 
-# =========================
-# FILTRO DATI
-# =========================
-df_filtrato = df[
-    (df["distanza_km"] <= raggio_km) &
-    (df["tipologia"].isin(tipologia_selezionata))
-].copy()
+df = df.dropna(subset=["latitudine", "longitudine"])
+df["distanza_km"] = df.apply(lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1).round(1)
 
-df_filtrato = df_filtrato.dropna(subset=[lat_col, lon_col])
+df_filtrato = df[(df["distanza_km"] <= raggio_km) & (df["tipologia"].isin(tipologia_selezionata))]
 
 # =========================
-# KPI
+# MAPPA
 # =========================
-col1, col2, col3 = st.columns(3)
-
-col1.metric("Impianti trovati", len(df_filtrato))
-col2.metric("Raggio selezionato", f"{raggio_km} km")
-
-if len(df_filtrato) > 0:
-    col3.metric("Distanza media", f"{df_filtrato['distanza_km'].mean():.1f} km")
-else:
-    col3.metric("Distanza media", "-")
-
-# =========================
-# MAPPA (STABILE)
-# =========================
-st.write("### 🗺️ Mappa impianti")
-
-if len(df_filtrato) > 0:
-
-    fig = px.scatter_mapbox(
-        df_filtrato,
-        lat=lat_col,
-        lon=lon_col,
-        size="totale (t)",
-        color="totale (t)",
-        hover_name="comune",
-        hover_data={
-            "tipologia": True,
-            "totale (t)": True,
-            "distanza_km": True,
-            lat_col: False,
-            lon_col: False
-        },
-        color_continuous_scale="Oranges",
-        size_max=25,
-        zoom=7,
-        height=600
-    )
-
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        margin=dict(r=0, t=0, l=0, b=0)
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-else:
-    st.warning("Nessun impianto trovato nel raggio selezionato")
+fig = px.scatter_mapbox(
+    df_filtrato,
+    lat="latitudine",
+    lon="longitudine",
+    size="totale (t)",
+    color="totale (t)",
+    hover_name="comune",
+    hover_data=["tipologia", "distanza_km"],
+    zoom=6,
+    height=600
+)
+fig.update_layout(mapbox_style="open-street-map")
+st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# TABELLA SEMPLICE
+# TABELLA
 # =========================
-st.write("### 📊 Tabella impianti")
-
-if len(df_filtrato) > 0:
-
-    comuni = df_filtrato["comune"].dropna().unique().tolist()
-
-    comune_sel = st.selectbox(
-        "Filtra per comune",
-        ["Tutti"] + comuni
-    )
-
-    if comune_sel != "Tutti":
-        df_tabella = df_filtrato[df_filtrato["comune"] == comune_sel]
-    else:
-        df_tabella = df_filtrato
-
-    st.dataframe(df_tabella, use_container_width=True)
-
-else:
-    st.warning("Nessun dato disponibile")
+st.dataframe(df_filtrato)
 
 # =========================
-# DOWNLOAD EXCEL
+# DOWNLOAD
 # =========================
 output = io.BytesIO()
-df_filtrato.to_excel(output, index=False, engine='openpyxl')
+df_filtrato.to_excel(output, index=False)
 output.seek(0)
 
-st.download_button(
-    "💾 Scarica dati filtrati in Excel",
-    data=output,
-    file_name="dati_filtrati.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+st.download_button("💾 Scarica Excel", data=output, file_name="dati_filtrati.xlsx")
