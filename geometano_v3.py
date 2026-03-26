@@ -33,7 +33,7 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# CARICAMENTO DATI IMPIANTI DA GITHUB
+# DATI IMPIANTI (GITHUB)
 # =========================
 @st.cache_data
 def load_data():
@@ -51,24 +51,18 @@ def load_data():
 df = load_data()
 
 # =========================
-# CARICAMENTO COMUNI ITALIANI
+# COMUNI ITALIANI (CSV STABILE)
 # =========================
 @st.cache_data
 def load_comuni():
-    url = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
-    r = requests.get(url)
-    r.raise_for_status()
-    data = r.json()
-    records = []
-    for feature in data["features"]:
-        nome = feature["properties"]["name"]
-        coords = feature["geometry"]["coordinates"]  # [lon, lat]
-        records.append({
-            "nome": nome.strip().lower(),
-            "lat": coords[1],
-            "lng": coords[0]
-        })
-    return pd.DataFrame(records)
+    url = "https://raw.githubusercontent.com/romeomurgese/comuni-italiani/main/comuni.csv"
+    try:
+        comuni = pd.read_csv(url)
+        comuni["nome"] = comuni["nome"].str.strip().str.lower()
+        return comuni
+    except Exception as e:
+        st.error(f"❌ Errore nel caricamento dei comuni: {e}")
+        return pd.DataFrame(columns=["nome", "lat", "lng"])
 
 df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
@@ -158,6 +152,9 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 st.subheader("📋 Impianti partecipanti")
 colonne_visibili = ["comune", "tipologia", "totale (t)", "distanza_km"]
+
+if not df_filtrato.empty:
+    st.dataframe(df_filtrato[colonne_visibili])
 
 if not df_filtrato.empty:
     st.dataframe(df_filtrato[colonne_visibili])
