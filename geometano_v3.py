@@ -126,10 +126,15 @@ else:
     st.plotly_chart(fig, use_container_width=True)
 
     # =========================
-    # TABELLA
     # =========================
-    st.subheader("📋 Tabella dati filtrati")
-    st.dataframe(df_filtrato)
+# TABELLA DATI FILTRATI (solo colonne utili)
+# =========================
+st.subheader("📋 Tabella dati filtrati")
+
+# colonne da mostrare
+colonne_visibili = ["comune", "tipologia", "totale (t)", "distanza_km"]
+
+st.dataframe(df_filtrato[colonne_visibili])
 
     # =========================
     # DOWNLOAD EXCEL
