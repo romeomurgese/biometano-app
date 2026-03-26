@@ -1,9 +1,11 @@
+# app.py - Legge automaticamente Excel da GitHub
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from math import radians, cos, sin, asin, sqrt
 import io
-import os
+import requests
 
 st.set_page_config(layout="wide")
 st.title("🌱 Impianti di trattamento rifiuti urbani in Italia")
@@ -19,19 +21,21 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * asin(sqrt(a))
 
 # =========================
-# CARICAMENTO DATI
+# CARICAMENTO DATI DA GITHUB
 # =========================
+@st.cache_data
 def load_data():
-    # Se il file geocodificato esiste, lo carica
-    if os.path.exists("impianti_geocodificati.xlsx"):
-        df = pd.read_excel("impianti_geocodificati.xlsx")
-    else:
-        # Altrimenti permette all'utente di caricarlo
-        uploaded_file = st.file_uploader("Carica il file geocodificato (.xlsx)", type="xlsx")
-        if uploaded_file is None:
-            st.warning("⚠️ Nessun file trovato. Carica il file Excel geocodificato per vedere la mappa.")
-            st.stop()
-        df = pd.read_excel(uploaded_file)
+    # URL raw del file Excel su GitHub
+    github_url = "https://raw.githubusercontent.com/TUO_USERNAME/NOME_REPO/main/impianti_geocodificati.xlsx"
+    
+    try:
+        r = requests.get(github_url)
+        r.raise_for_status()
+        df = pd.read_excel(io.BytesIO(r.content))
+    except Exception as e:
+        st.error(f"Errore nel caricamento del file da GitHub: {e}")
+        st.stop()
+    
     df.columns = df.columns.str.lower()
     df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(1)
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
@@ -65,7 +69,10 @@ row_sel = comuni_ref[comuni_ref["comune"] == comune_sel].iloc[0]
 lat_centro = row_sel["latitudine"]
 lon_centro = row_sel["longitudine"]
 
-df["distanza_km"] = df.apply(lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1).round(1)
+df["distanza_km"] = df.apply(
+    lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]),
+    axis=1
+).round(1)
 
 df_filtrato = df[(df["distanza_km"] <= raggio_km) & (df["tipologia"].isin(tipologia_selezionata))]
 
