@@ -53,15 +53,28 @@ df = load_data()
 # =========================
 @st.cache_data
 def load_comuni():
-    url_geojson = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
-    r = requests.get(url_geojson)
-    r.raise_for_status()
-    data = r.json()
-    records = []
+    import os
+    import json
 
+    url_geojson = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
+
+    try:
+        r = requests.get(url_geojson, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        st.warning(f"⚠️ Non è stato possibile scaricare i comuni da GitHub: {e}")
+        # fallback locale: assicurati di avere un file 'comuni.geojson' nella cartella del progetto
+        if os.path.exists("comuni.geojson"):
+            with open("comuni.geojson", "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            st.error("❌ Nessun file locale disponibile. Impossibile continuare.")
+            st.stop()
+
+    records = []
     for feature in data["features"]:
         nome = feature["properties"]["name"]
-        # estrai coordinate centrali (approssimazione dal primo punto del poligono)
         coords = feature["geometry"]["coordinates"]
         if feature["geometry"]["type"] == "Polygon":
             lon, lat = coords[0][0]
@@ -69,16 +82,10 @@ def load_comuni():
             lon, lat = coords[0][0][0]
         else:
             continue
-
-        records.append({
-            "nome": nome.strip().lower(),
-            "lat": lat,
-            "lng": lon
-        })
+        records.append({"nome": nome.strip().lower(), "lat": lat, "lng": lon})
 
     comuni = pd.DataFrame(records)
     return comuni
-
 df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
