@@ -129,12 +129,12 @@ else:
     # =========================
 # TABELLA DATI FILTRATI (solo colonne utili)
 # =========================
-st.subheader("📋 Tabella dati filtrati")
+    st.subheader("📋 Tabella dati filtrati")
 
 # colonne da mostrare
-colonne_visibili = ["comune", "tipologia", "totale (t)", "distanza_km"]
+    colonne_visibili = ["comune", "tipologia", "totale (t)", "distanza_km"]
 
-st.dataframe(df_filtrato[colonne_visibili])
+    st.dataframe(df_filtrato[colonne_visibili])
 
     # =========================
     # DOWNLOAD EXCEL
