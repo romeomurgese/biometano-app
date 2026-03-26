@@ -58,8 +58,24 @@ df = load_data()
 # =========================
 # puoi usare un dataset CSV con tutti i comuni italiani oppure
 # definire manualmente una lista minima di esempio
-italian_comuni = ["Roma", "Milano", "Napoli", "Torino", "Firenze", "Bologna", "Genova", "Palermo", "Venezia", "Verona"]
-comune_sel = st.selectbox("Comune di gara (qualsiasi comune d'Italia)", italian_comuni)
+# =========================
+# CARICAMENTO COMUNI ITALIANI REALI
+# =========================
+@st.cache_data
+def load_comuni():
+    url_comuni = "https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json"
+    comuni = pd.read_json(url_comuni)
+    return comuni
+
+df_comuni = load_comuni()
+
+# lista comuni ordinata
+lista_comuni = df_comuni["nome"].sort_values().unique()
+
+comune_sel = st.selectbox(
+    "Comune di gara (tutti i comuni italiani)",
+    lista_comuni
+)
 
 raggio_km = st.slider("Raggio impianti partecipanti (km)", 1, 200, 50)
 
