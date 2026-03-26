@@ -51,24 +51,19 @@ df = load_data()
 # =========================
 # COMUNI ITALIANI (CSV)
 # =========================
-import requests, json
+@st.cache_data
+def load_comuni_istat():
+    url = "https://www.istat.it/storage/cartografia/comuni/Comuni.csv"
+    df = pd.read_csv(url, sep=';', encoding='latin1')
+    df["nome"] = df["DENOM_COM"].str.lower().str.strip()
+    df["lat"] = df["LAT"].astype(float)
+    df["lng"] = df["LON"].astype(float)
+    return df
 
-url_geojson = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
-r = requests.get(url_geojson)
-data = r.json()
-records = []
-
-for feature in data["features"]:
-    nome = feature["properties"]["name"].lower().strip()
-    geom = feature["geometry"]
-    if geom["type"] == "Polygon":
-        lon, lat = geom["coordinates"][0][0]
-    elif geom["type"] == "MultiPolygon":
-        lon, lat = geom["coordinates"][0][0][0]
-    records.append({"nome": nome, "lat": lat, "lng": lon})
-
-df_comuni = pd.DataFrame(records)
+df_comuni = load_comuni_istat()
 lista_comuni = df_comuni["nome"].sort_values().unique()
+
+st.write(f"Totale comuni caricati: {len(lista_comuni)}")
 
 # =========================
 # UI
