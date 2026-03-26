@@ -14,6 +14,7 @@ st.title("🌱 Simulatore gara impianti trattamento rifiuti in Italia")
 # FUNZIONI
 # =========================
 def haversine(lat1, lon1, lat2, lon2):
+    """Calcola distanza in km tra due coordinate"""
     R = 6371
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
@@ -21,6 +22,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * asin(sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
+    """Coordinate per disegnare un cerchio sulla mappa"""
     lat_circle = []
     lon_circle = []
     for theta in np.linspace(0, 2*np.pi, n_points):
@@ -31,62 +33,48 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# DATI IMPIANTI (GITHUB)
+# CARICAMENTO DATI IMPIANTI DA GITHUB
 # =========================
 @st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
     r = requests.get(url)
     r.raise_for_status()
-
     df = pd.read_excel(io.BytesIO(r.content))
     df.columns = df.columns.str.lower()
-
     df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(1)
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
     df["longitudine"] = pd.to_numeric(df["longitudine"], errors='coerce')
-
     df = df.dropna(subset=["latitudine", "longitudine"])
     return df
 
 df = load_data()
 
 # =========================
-# COMUNI ITALIANI (DATASET STABILE)
+# CARICAMENTO COMUNI ITALIANI
 # =========================
 @st.cache_data
 def load_comuni():
     url = "https://raw.githubusercontent.com/openpolis/geojson-italy/master/geojson/comuni.geojson"
-
     r = requests.get(url)
     r.raise_for_status()
-
     data = r.json()
-
     records = []
-
     for feature in data["features"]:
         nome = feature["properties"]["name"]
-        coords = feature["geometry"]["coordinates"]
-
-        # coordinate = [lon, lat]
-        lon = coords[0]
-        lat = coords[1]
-
+        coords = feature["geometry"]["coordinates"]  # [lon, lat]
         records.append({
             "nome": nome.strip().lower(),
-            "lat": lat,
-            "lng": lon
+            "lat": coords[1],
+            "lng": coords[0]
         })
+    return pd.DataFrame(records)
 
-    comuni = pd.DataFrame(records)
-    return comuni
 df_comuni = load_comuni()
-
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# UI
+# UI: selezione comune e raggio
 # =========================
 col1, col2 = st.columns(2)
 
@@ -97,10 +85,9 @@ with col2:
     raggio_km = st.slider("📏 Raggio impianti (km)", 1, 200, 50)
 
 # =========================
-# LAT/LON COMUNE
+# LAT/LON DEL COMUNE SELEZIONATO
 # =========================
 comune_sel_clean = comune_sel.strip().lower()
-
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
 
 if match.empty:
@@ -108,7 +95,6 @@ if match.empty:
     st.stop()
 
 row_comune = match.iloc[0]
-
 lat_centro = row_comune["lat"]
 lon_centro = row_comune["lng"]
 
@@ -121,9 +107,7 @@ df["distanza_km"] = df.apply(
 ).round(1)
 
 df_filtrato = df[df["distanza_km"] <= raggio_km]
-
 st.write(f"🔎 Impianti trovati nel raggio: {len(df_filtrato)}")
-
 if df_filtrato.empty:
     st.warning("⚠️ Nessun impianto trovato nel raggio selezionato")
 
@@ -131,7 +115,6 @@ if df_filtrato.empty:
 # MAPPA
 # =========================
 st.subheader("📍 Mappa impianti e raggio di gara")
-
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
 fig = px.scatter_mapbox(
@@ -168,14 +151,12 @@ fig.add_trace(go.Scattermapbox(
 ))
 
 fig.update_layout(mapbox_style="open-street-map")
-
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
-# TABELLA
+# TABELLA IMPIANTI
 # =========================
 st.subheader("📋 Impianti partecipanti")
-
 colonne_visibili = ["comune", "tipologia", "totale (t)", "distanza_km"]
 
 if not df_filtrato.empty:
