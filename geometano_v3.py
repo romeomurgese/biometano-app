@@ -4,23 +4,25 @@ import plotly.express as px
 import plotly.graph_objects as go
 from math import radians, cos, sin, asin
 import numpy as np
+from io import BytesIO
 from PIL import Image
 import requests
-from io import BytesIO
 
 st.set_page_config(layout="wide")
 st.title("🌱 Simulatore gara impianti trattamento rifiuti in Italia")
 
 # =========================
-# Logo Bioenerys
+# LOGO E TITOLI
 # =========================
-logo_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Placeholder_no_text.svg/1200px-Placeholder_no_text.svg.png"
+st.markdown("### Bioenerys Srl")
+# Placeholder logo
 try:
-    response = requests.get(logo_url)
+    url_logo = "https://via.placeholder.com/150x50.png?text=Bioenerys+Logo"
+    response = requests.get(url_logo)
     logo_img = Image.open(BytesIO(response.content))
-    st.image(logo_img, width=120)
+    st.image(logo_img, width=150)
 except:
-    st.write("Bioenerys Srl")
+    st.write("Logo non disponibile")
 
 # =========================
 # FUNZIONI
@@ -69,25 +71,25 @@ df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# SIDEBAR - DASHBOARD INPUT
+# SIDEBAR
 # =========================
 st.sidebar.header("⚙️ Parametri gara")
 comune_sel = st.sidebar.selectbox("📍 Comune di gara", lista_comuni)
 raggio_km = st.sidebar.slider("📏 Raggio impianti (km)", 1, 200, 50)
-tariffa_base = st.sidebar.number_input("💰 Tariffa base (€)", min_value=0.0, value=100.0, step=1.0)
+tariffa_base = st.sidebar.number_input("💰 Tariffa base gara (€)", value=0, step=10)
 
-# Impianti extra multipli
+# Inserimento multiplo impianti extra
+impianti_nomi = df["comune"].str.lower().sort_values().unique()
 impianti_extra = st.sidebar.multiselect(
-    "🔹 Aggiungi impianti manualmente (fuori dal raggio)",
-    options=df["comune"].sort_values().unique(),
+    "🔹 Aggiungi impianti extra (fuori raggio)", 
+    options=impianti_nomi,
     default=[]
 )
 
-# Checkbox color map
-use_color_map = st.sidebar.checkbox("🌈 Color map secondo totale (t)", value=False)
+use_color_map = st.sidebar.checkbox("🎨 Color map secondo totale (t)", value=False)
 
 # =========================
-# TROVA COMUNE SELEZIONATO
+# TROVA COMUNE CENTRO
 # =========================
 comune_sel_clean = str(comune_sel).strip().lower()
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
@@ -100,41 +102,22 @@ lat_centro = row_comune["lat"]
 lon_centro = row_comune["lng"]
 
 # =========================
-# CALCOLO DISTANZE
+# CALCOLO DISTANZE E FILTRO
 # =========================
 df["distanza_km"] = df.apply(
     lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1
 ).round(1)
 
-df_filtrato = df[df["distanza_km"] <= raggio_km].copy()
+df_filtrato = df[df["distanza_km"] <= raggio_km]
+
+# Aggiungi impianti extra
 if impianti_extra:
-    df_extra_sel = df[df["comune"].isin(impianti_extra)]
-    df_filtrato = pd.concat([df_filtrato, df_extra_sel]).drop_duplicates()
+    imp_sel = df[df["comune"].str.lower().isin(impianti_extra)]
+    df_filtrato = pd.concat([df_filtrato, imp_sel]).drop_duplicates().reset_index(drop=True)
 
-# Colonne per editor
-df_filtrato["in_gara"] = True
-df_filtrato["tariffa"] = tariffa_base
-
-# =========================
-# DATA EDITOR INTERATTIVO
-# =========================
-st.subheader("📋 Impianti partecipanti")
-colonne_visibili = ["in_gara", "comune", "tipologia", "totale (t)", "distanza_km", "tariffa"]
-
-edited_df = st.data_editor(
-    df_filtrato[colonne_visibili],
-    column_config={
-        "in_gara": st.column_config.CheckboxColumn("In gara"),
-        "tariffa": st.column_config.NumberColumn("Tariffa (€)", min_value=0.0, step=1.0, format="%0.2f")
-    },
-    hide_index=True
-)
-
-df_finale = edited_df[edited_df["in_gara"] == True]
-
-st.write(f"🔎 Impianti selezionati: {len(df_finale)}")
-if df_finale.empty:
-    st.warning("⚠️ Nessun impianto selezionato")
+# Flag attivi per rimuovere impianti
+if "flag" not in df_filtrato.columns:
+    df_filtrato["flag"] = True
 
 # =========================
 # MAPPA
@@ -142,10 +125,10 @@ if df_finale.empty:
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-# Mappa base
+# Base map con raggio e comune
 fig = go.Figure()
 
-# Raggio e centro
+# Cerchio raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
@@ -155,21 +138,24 @@ fig.add_trace(go.Scattermapbox(
     line=dict(color='green', width=2),
     name=f"Raggio {raggio_km} km"
 ))
+
+# Comune di gara
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
     mode='markers+text',
     marker=dict(size=14, color='red'),
     text=[comune_sel],
-    textposition="top center",
+    textposition="top right",
     name="Comune di gara"
 ))
 
-# Aggiungi impianti solo se ci sono
+# Punti impianti filtrati
+df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
 if not df_finale.empty:
-    df_finale = df_finale.copy()
     df_finale["totale (t)"] = pd.to_numeric(df_finale["totale (t)"], errors='coerce').fillna(1)
-
+    hover_cols = [c for c in ["tipologia","totale (t)","distanza_km"] if c in df_finale.columns]
+    
     if use_color_map:
         fig_imp = px.scatter_mapbox(
             df_finale,
@@ -178,8 +164,8 @@ if not df_finale.empty:
             size="totale (t)",
             color="totale (t)",
             hover_name="comune",
-            hover_data=["tipologia","totale (t)","distanza_km"],
-            size_max=50,
+            hover_data=hover_cols,
+            size_max=40,
             color_continuous_scale="YlOrRd"
         )
     else:
@@ -188,20 +174,38 @@ if not df_finale.empty:
             lat="latitudine",
             lon="longitudine",
             hover_name="comune",
-            hover_data=["tipologia","totale (t)","distanza_km"]
+            hover_data=hover_cols
         )
         fig_imp.update_traces(marker=dict(size=10, color="black"))
-
-    # Aggiunge i punti della color map alla figura base
+    
     for trace in fig_imp.data:
         fig.add_trace(trace)
 
 fig.update_layout(
     mapbox_style="open-street-map",
-    mapbox_center={"lat": lat_centro, "lon": lon_centro},
-    mapbox_zoom=6,
-    legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(255,255,255,0.8)"),
-    margin={"r":0,"t":0,"l":0,"b":0}
+    mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
+    legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(50,50,50,0.7)", font=dict(color="white"))
 )
-
 st.plotly_chart(fig, use_container_width=True)
+
+# =========================
+# TABELLA INTERATTIVA CON FLAG E TARIFFA
+# =========================
+st.subheader("📋 Impianti partecipanti")
+
+# Aggiunge colonna tariffa input
+if not df_finale.empty:
+    df_finale["tariffa (€)"] = df_finale.get("tariffa (€)", tariffa_base)
+    
+    # Checkbox per flag
+    for idx in df_finale.index:
+        checked = st.checkbox(f"{df_finale.loc[idx,'comune']} - {df_finale.loc[idx,'tipologia']}", value=True, key=idx)
+        df_finale.at[idx,"flag"] = checked
+
+# Mostra solo impianti flaggati
+df_mostra = df_finale[df_finale["flag"]==True]
+colonne_visibili = ["comune","tipologia","totale (t)","distanza_km","tariffa (€)"]
+if not df_mostra.empty:
+    st.dataframe(df_mostra[colonne_visibili])
+else:
+    st.write("⚠️ Nessun impianto selezionato")
