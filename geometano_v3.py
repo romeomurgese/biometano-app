@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from math import radians, cos, sin, asin, sqrt
 import numpy as np
@@ -9,7 +8,6 @@ import numpy as np
 # HEADER + LOGO
 # =========================
 st.set_page_config(layout="wide")
-
 col_logo, col_title = st.columns([1,5])
 with col_logo:
     st.image("https://via.placeholder.com/200x100.png?text=Bioenerys+Srl", width=150)
@@ -46,7 +44,7 @@ def load_data():
     df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors="coerce").fillna(1)
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors="coerce")
     df["longitudine"] = pd.to_numeric(df["longitudine"], errors="coerce")
-    return df.dropna(subset=["latitudine", "longitudine"])
+    return df.dropna(subset=["latitudine","longitudine"])
 
 df = load_data()
 
@@ -67,35 +65,26 @@ st.sidebar.header("⚙️ Parametri Gara")
 comune_sel = st.sidebar.selectbox("📍 Comune di Gara", lista_comuni)
 raggio_km = st.sidebar.slider("📏 Raggio Impianti (km)", 1, 200, 50)
 tariffa_base = st.sidebar.number_input("💰 Tariffa Base di Gara (€)", min_value=0.0, value=100.0, step=10.0)
-
-impianto_extra = st.sidebar.text_input(
-    "🔹 Aggiungi impianto extra",
-    "",
-    help="Inserisci il nome di un impianto anche fuori raggio"
-)
-
-vista_colorata = st.sidebar.checkbox("🔄 Mappa colorata per Totale (t)")
+impianto_extra = st.sidebar.text_input("🔹 Aggiungi impianto extra", "", help="Nome impianto fuori raggio")
+vista_colorata = st.sidebar.checkbox("🔄 Color map secondo Totale (t)")
 
 # =========================
-# CALCOLO COORDINATE COMUNE
+# CENTRO COMUNE
 # =========================
 comune_sel_clean = comune_sel.strip().lower()
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
-
 if match.empty:
     st.error("❌ Comune non trovato")
     st.stop()
-
 lat_centro = match.iloc[0]["lat"]
 lon_centro = match.iloc[0]["lng"]
 
 # =========================
-# CALCOLO DISTANZE
+# DISTANZE
 # =========================
 df["distanza_km"] = df.apply(
     lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1
 ).round(1)
-
 df_filtrato = df[df["distanza_km"] <= raggio_km]
 
 if impianto_extra.strip():
@@ -120,24 +109,9 @@ lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
 fig = go.Figure()
 
-# punti impianti
-for _, row in df_filtrato.iterrows():
-    fig.add_trace(go.Scattermapbox(
-        lat=[row["latitudine"]],
-        lon=[row["longitudine"]],
-        mode="markers+text",
-        marker=dict(size=10, color="black"),
-        text=row["comune"],
-        textposition="top center",
-        hovertemplate="%{text}<br>Totale: %{customdata[0]} t<br>Distanza: %{customdata[1]} km",
-        customdata=[[row["totale (t)"], row["distanza_km"]]],
-        showlegend=False
-    ))
-
 # Raggio
 fig.add_trace(go.Scattermapbox(
-    lat=lat_circle,
-    lon=lon_circle,
+    lat=lat_circle, lon=lon_circle,
     mode="lines",
     fill="toself",
     fillcolor="rgba(0,200,0,0.1)",
@@ -147,12 +121,30 @@ fig.add_trace(go.Scattermapbox(
 
 # Comune di gara
 fig.add_trace(go.Scattermapbox(
-    lat=[lat_centro],
-    lon=[lon_centro],
+    lat=[lat_centro], lon=[lon_centro],
     mode="markers",
     marker=dict(size=14, color="red"),
     name="Comune di Gara"
 ))
+
+# Punti impianti
+for _, row in df_filtrato.iterrows():
+    color = row["totale (t)"] if vista_colorata else "black"
+    fig.add_trace(go.Scattermapbox(
+        lat=[row["latitudine"]], lon=[row["longitudine"]],
+        mode="markers+text",
+        marker=dict(size=10, color=color),
+        text=row["comune"],
+        textposition="top center",
+        hovertemplate=(
+            "<b>%{text}</b><br>" +
+            "Tipologia: %{customdata[0]}<br>" +
+            "Totale: %{customdata[1]} t<br>" +
+            "Distanza: %{customdata[2]} km"
+        ),
+        customdata=[[row["tipologia"], row["totale (t)"], row["distanza_km"]]],
+        showlegend=False
+    ))
 
 fig.update_layout(
     mapbox_style="carto-positron",
