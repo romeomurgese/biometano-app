@@ -2,31 +2,25 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from math import radians, cos, sin, asin, sqrt
+from math import radians, cos, sin, asin
 import numpy as np
 from PIL import Image
 import requests
 from io import BytesIO
 
-# =========================
-# PAGE CONFIG
-# =========================
-st.set_page_config(layout="wide", page_title="Bioenerys Srl - Simulatore Gare")
-st.title("🌱 Bioenerys Srl - Simulatore gara impianti trattamento rifiuti in Italia")
+st.set_page_config(layout="wide")
+st.title("🌱 Simulatore gara impianti trattamento rifiuti in Italia")
 
 # =========================
-# LOGO
+# Logo Bioenerys
 # =========================
-logo_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/bioenerys_logo.png"
+logo_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Placeholder_no_text.svg/1200px-Placeholder_no_text.svg.png"
 try:
     response = requests.get(logo_url)
-    if response.status_code == 200:
-        logo_img = Image.open(BytesIO(response.content))
-        st.image(logo_img, width=120)
-    else:
-        st.write("🔹 Logo Bioenerys non disponibile")
+    logo_img = Image.open(BytesIO(response.content))
+    st.image(logo_img, width=120)
 except:
-    st.write("🔹 Logo Bioenerys non disponibile")
+    st.write("Bioenerys Srl")
 
 # =========================
 # FUNZIONI
@@ -36,11 +30,10 @@ def haversine(lat1, lon1, lat2, lon2):
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
     a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
-    return 2 * R * asin(sqrt(a))
+    return 2 * R * asin(np.sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
-    lat_circle = []
-    lon_circle = []
+    lat_circle, lon_circle = [], []
     for theta in np.linspace(0, 2*np.pi, n_points):
         dlat = (r_km/6371) * (180/np.pi) * np.sin(theta)
         dlon = (r_km/6371) * (180/np.pi) * np.cos(theta) / cos(radians(lat))
@@ -49,7 +42,7 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# LOAD DATI IMPIANTI
+# CARICA DATI IMPIANTI
 # =========================
 @st.cache_data
 def load_data():
@@ -64,7 +57,7 @@ def load_data():
 df = load_data()
 
 # =========================
-# LOAD COMUNI
+# CARICA COMUNI
 # =========================
 @st.cache_data
 def load_comuni():
@@ -76,23 +69,22 @@ df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# SIDEBAR
+# SIDEBAR - DASHBOARD INPUT
 # =========================
 st.sidebar.header("⚙️ Parametri gara")
 comune_sel = st.sidebar.selectbox("📍 Comune di gara", lista_comuni)
 raggio_km = st.sidebar.slider("📏 Raggio impianti (km)", 1, 200, 50)
-tariffa_base = st.sidebar.number_input("💰 Tariffa base gara (€ / t)", min_value=0.0, value=50.0, step=1.0)
+tariffa_base = st.sidebar.number_input("💰 Tariffa base (€)", min_value=0.0, value=100.0, step=1.0)
 
-# Input manuale di impianti extra
-impianti_nomi = df["comune"].str.lower().sort_values().unique()
-impianto_extra = st.sidebar.text_input(
-    "🔹 Aggiungi impianto manualmente (fuori dal raggio)", 
-    "", 
-    help="Scrivi il nome di un impianto e premi invio"
+# Impianti extra multipli
+impianti_extra = st.sidebar.multiselect(
+    "🔹 Aggiungi impianti manualmente (fuori dal raggio)",
+    options=df["comune"].sort_values().unique(),
+    default=[]
 )
 
-# Attiva color map
-color_map_on = st.sidebar.checkbox("🎨 Color map secondo totale (t)")
+# Checkbox color map
+use_color_map = st.sidebar.checkbox("🌈 Color map secondo totale (t)", value=False)
 
 # =========================
 # TROVA COMUNE SELEZIONATO
@@ -113,30 +105,75 @@ lon_centro = row_comune["lng"]
 df["distanza_km"] = df.apply(
     lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1
 ).round(1)
-df_filtrato = df[df["distanza_km"] <= raggio_km]
 
-# Aggiungi impianto extra se valido
-if impianto_extra.strip() != "":
-    imp_sel = df[df["comune"].str.lower() == impianto_extra.strip().lower()]
-    if not imp_sel.empty:
-        df_filtrato = pd.concat([df_filtrato, imp_sel]).drop_duplicates()
+df_filtrato = df[df["distanza_km"] <= raggio_km].copy()
+if impianti_extra:
+    df_extra_sel = df[df["comune"].isin(impianti_extra)]
+    df_filtrato = pd.concat([df_filtrato, df_extra_sel]).drop_duplicates()
 
-st.write(f"🔎 Impianti trovati nel raggio o selezionati: {len(df_filtrato)}")
-if df_filtrato.empty:
-    st.warning("⚠️ Nessun impianto trovato")
+# Colonne per editor
+df_filtrato["in_gara"] = True
+df_filtrato["tariffa"] = tariffa_base
 
 # =========================
-# MAPPA CON SCALING RAGIONEVOLE PER COLOR MAP
+# DATA EDITOR INTERATTIVO
+# =========================
+st.subheader("📋 Impianti partecipanti")
+colonne_visibili = ["in_gara", "comune", "tipologia", "totale (t)", "distanza_km", "tariffa"]
+
+edited_df = st.data_editor(
+    df_filtrato[colonne_visibili],
+    column_config={
+        "in_gara": st.column_config.CheckboxColumn("In gara"),
+        "tariffa": st.column_config.NumberColumn("Tariffa (€)", min_value=0.0, step=1.0, format="%0.2f")
+    },
+    hide_index=True
+)
+
+df_finale = edited_df[edited_df["in_gara"] == True]
+
+st.write(f"🔎 Impianti selezionati: {len(df_finale)}")
+if df_finale.empty:
+    st.warning("⚠️ Nessun impianto selezionato")
+
+# =========================
+# MAPPA
 # =========================
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-map_center = {"lat": lat_centro, "lon": lon_centro}
-default_zoom = 7  # zoom fisso per il comune + raggio
+# Mappa scatter
+if not df_finale.empty:
+    if use_color_map:
+        sizeref = 2.*max(df_finale["totale (t)"])/100**2
+        fig = px.scatter_mapbox(
+            df_finale,
+            lat="latitudine",
+            lon="longitudine",
+            size="totale (t)",
+            color="totale (t)",
+            hover_name="comune",
+            hover_data=["tipologia","totale (t)","distanza_km"],
+            center={"lat": lat_centro, "lon": lon_centro},
+            zoom=6,
+            height=600,
+            size_max=50,
+            color_continuous_scale="YlOrRd"
+        )
+    else:
+        fig = px.scatter_mapbox(
+            df_finale,
+            lat="latitudine",
+            lon="longitudine",
+            hover_name="comune",
+            hover_data=["tipologia","totale (t)","distanza_km"],
+            center={"lat": lat_centro, "lon": lon_centro},
+            zoom=6,
+            height=600,
+        )
+        fig.update_traces(marker=dict(size=10, color="black"))
 
-fig = go.Figure()
-
-# Cerchio raggio
+# Raggio e centro
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
@@ -146,106 +183,21 @@ fig.add_trace(go.Scattermapbox(
     line=dict(color='green', width=2),
     name=f"Raggio {raggio_km} km"
 ))
-
-# Comune centrale
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
     mode='markers+text',
     marker=dict(size=14, color='red'),
-    text=[comune_sel.capitalize()],
-    textposition="top right",
+    text=[comune_sel],
+    textposition="top center",
     name="Comune di gara"
 ))
 
-if color_map_on and not df_filtrato.empty:
-    # Scaling dimensioni cerchi
-    min_size = 8
-    max_size = 30
-    tot_values = df_filtrato["totale (t)"].values
-    sizes = np.interp(tot_values, (tot_values.min(), tot_values.max()), (min_size, max_size))
-
-    fig.add_trace(go.Scattermapbox(
-        lat=df_filtrato["latitudine"],
-        lon=df_filtrato["longitudine"],
-        mode='markers+text',
-        marker=dict(
-            size=sizes,
-            sizemode='area',
-            color=tot_values,
-            colorscale="YlOrRd",
-            showscale=True,
-            colorbar=dict(title="Totale (t)")
-        ),
-        text=df_filtrato["comune"],
-        textposition="top center",
-        hovertemplate="%{text}<br>Totale: %{marker.color}<br>Distanza: %{customdata[0]} km",
-        customdata=df_filtrato[["distanza_km"]]
-    ))
-else:
-    fig.add_trace(go.Scattermapbox(
-        lat=df_filtrato["latitudine"],
-        lon=df_filtrato["longitudine"],
-        mode='markers+text',
-        marker=dict(size=10, color='black'),
-        text=df_filtrato["comune"],
-        textposition="top center",
-        hovertemplate="%{text}<br>Totale: %{customdata[0]} t<br>Distanza: %{customdata[1]} km",
-        customdata=df_filtrato[["totale (t)","distanza_km"]]
-    ))
-
-# Layout fisso e leggibile
+# Ottimizza legenda
 fig.update_layout(
     mapbox_style="open-street-map",
-    mapbox_center=map_center,
-    mapbox_zoom=default_zoom,
-    height=650,
-    legend=dict(
-        title="Legenda",
-        yanchor="top",
-        y=0.99,
-        xanchor="left",
-        x=0.01,
-        bgcolor="rgba(0,0,0,0.5)",
-        font=dict(color="white")
-    ),
-    margin=dict(l=10, r=10, t=10, b=10)
+    legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(255,255,255,0.8)"),
+    margin={"r":0,"t":0,"l":0,"b":0}
 )
 
 st.plotly_chart(fig, use_container_width=True)
-
-# =========================
-# TABELLA IMPIANTI
-# =========================
-# =========================
-# TABELLA INTERATTIVA IMPiANTI
-# =========================
-st.subheader("📋 Impianti partecipanti")
-
-# Aggiungi colonne per checkbox e tariffa
-df_filtrato = df_filtrato.copy()
-if "in_gara" not in df_filtrato.columns:
-    df_filtrato["in_gara"] = True  # di default tutti selezionati
-if "tariffa" not in df_filtrato.columns:
-    df_filtrato["tariffa"] = raggio_km  # puoi mettere qui tariffa base di default o 0
-
-# Colonne visibili
-colonne_visibili = ["in_gara", "comune", "tipologia", "totale (t)", "distanza_km", "tariffa"]
-
-# Editor interattivo
-edited_df = st.data_editor(
-    df_filtrato[colonne_visibili],
-    column_config={
-        "in_gara": st.column_config.CheckboxColumn("In gara"),
-        "tariffa": st.column_config.NumberColumn(
-            "Tariffa (€)", min_value=0.0, step=1.0, format="%0.2f"
-        ),
-    },
-    hide_index=True,
-    key="impianti_editor"
-)
-
-# Filtra solo impianti flaggati
-df_finale = edited_df[edited_df["in_gara"] == True]
-
-st.write(f"🔎 Impianti confermati in gara: {len(df_finale)}")
