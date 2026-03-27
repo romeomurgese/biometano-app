@@ -142,36 +142,8 @@ if df_finale.empty:
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-# Mappa scatter
-if not df_finale.empty:
-    if use_color_map:
-        sizeref = 2.*max(df_finale["totale (t)"])/100**2
-        fig = px.scatter_mapbox(
-            df_finale,
-            lat="latitudine",
-            lon="longitudine",
-            size="totale (t)",
-            color="totale (t)",
-            hover_name="comune",
-            hover_data=["tipologia","totale (t)","distanza_km"],
-            center={"lat": lat_centro, "lon": lon_centro},
-            zoom=6,
-            height=600,
-            size_max=50,
-            color_continuous_scale="YlOrRd"
-        )
-    else:
-        fig = px.scatter_mapbox(
-            df_finale,
-            lat="latitudine",
-            lon="longitudine",
-            hover_name="comune",
-            hover_data=["tipologia","totale (t)","distanza_km"],
-            center={"lat": lat_centro, "lon": lon_centro},
-            zoom=6,
-            height=600,
-        )
-        fig.update_traces(marker=dict(size=10, color="black"))
+# Mappa base
+fig = go.Figure()
 
 # Raggio e centro
 fig.add_trace(go.Scattermapbox(
@@ -193,9 +165,41 @@ fig.add_trace(go.Scattermapbox(
     name="Comune di gara"
 ))
 
-# Ottimizza legenda
+# Aggiungi impianti solo se ci sono
+if not df_finale.empty:
+    df_finale = df_finale.copy()
+    df_finale["totale (t)"] = pd.to_numeric(df_finale["totale (t)"], errors='coerce').fillna(1)
+
+    if use_color_map:
+        fig_imp = px.scatter_mapbox(
+            df_finale,
+            lat="latitudine",
+            lon="longitudine",
+            size="totale (t)",
+            color="totale (t)",
+            hover_name="comune",
+            hover_data=["tipologia","totale (t)","distanza_km"],
+            size_max=50,
+            color_continuous_scale="YlOrRd"
+        )
+    else:
+        fig_imp = px.scatter_mapbox(
+            df_finale,
+            lat="latitudine",
+            lon="longitudine",
+            hover_name="comune",
+            hover_data=["tipologia","totale (t)","distanza_km"]
+        )
+        fig_imp.update_traces(marker=dict(size=10, color="black"))
+
+    # Aggiunge i punti della color map alla figura base
+    for trace in fig_imp.data:
+        fig.add_trace(trace)
+
 fig.update_layout(
     mapbox_style="open-street-map",
+    mapbox_center={"lat": lat_centro, "lon": lon_centro},
+    mapbox_zoom=6,
     legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(255,255,255,0.8)"),
     margin={"r":0,"t":0,"l":0,"b":0}
 )
