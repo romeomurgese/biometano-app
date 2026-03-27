@@ -119,7 +119,7 @@ for idx, row in df_filtrato.iterrows():
     cols[2].write(row["tipologia"])
     offerta = cols[3].number_input("Offerta (€)", value=row.get("offerta") if pd.notna(row.get("offerta")) else 0.0, key=f"offerta_{idx}")
     df_filtrato.at[idx, "offerta"] = offerta
-    cols[4].write(f"{row['totale (t)']} t")
+#    cols[4].write(f"{row['totale (t)']} t")
     
 df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
 
