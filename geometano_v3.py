@@ -193,19 +193,30 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 st.subheader("📋 Impianti partecipanti")
 
-# Aggiunge colonna tariffa input
 if not df_finale.empty:
-    df_finale["tariffa (€)"] = df_finale.get("tariffa (€)", tariffa_base)
-    
-    # Checkbox per flag
+    # Creiamo una lista per raccogliere i dati aggiornati
+    rows = []
     for idx in df_finale.index:
-        checked = st.checkbox(f"{df_finale.loc[idx,'comune']} - {df_finale.loc[idx,'tipologia']}", value=True, key=idx)
-        df_finale.at[idx,"flag"] = checked
-
-# Mostra solo impianti flaggati
-df_mostra = df_finale[df_finale["flag"]==True]
-colonne_visibili = ["comune","tipologia","totale (t)","distanza_km","tariffa (€)"]
-if not df_mostra.empty:
-    st.dataframe(df_mostra[colonne_visibili])
+        col1, col2 = st.columns([0.2,0.8])
+        with col1:
+            flag = st.checkbox(f"", value=True, key=f"chk_{idx}")
+        with col2:
+            tariffa = st.number_input(
+                f"{df_finale.loc[idx,'comune']} - {df_finale.loc[idx,'tipologia']}",
+                value=float(tariffa_base),
+                step=1.0,
+                key=f"tar_{idx}"
+            )
+        # Aggiorna riga solo se flag True
+        if flag:
+            row = df_finale.loc[idx].to_dict()
+            row["tariffa (€)"] = tariffa
+            rows.append(row)
+    # Dataframe finale mostrato
+    df_mostra = pd.DataFrame(rows)
+    if not df_mostra.empty:
+        st.dataframe(df_mostra[["comune","tipologia","totale (t)","distanza_km","tariffa (€)"]])
+    else:
+        st.write("⚠️ Nessun impianto selezionato")
 else:
-    st.write("⚠️ Nessun impianto selezionato")
+    st.write("⚠️ Nessun impianto disponibile")
