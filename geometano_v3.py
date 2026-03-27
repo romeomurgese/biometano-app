@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
 from math import radians, cos, sin, asin, sqrt
@@ -45,37 +46,23 @@ def load_data():
 df = load_data()
 
 # =========================
-# CARICA COMUNI DA CSV GITHUB
+# CARICA COMUNI CON GEOJSON
 # =========================
-#@st.cache_data
-#def load_comuni():
-    # url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"  # Sostituisci con il tuo CSV
-#    df = pd.read_csv(url)
-#    df["nome"] = df["nome"].str.lower().str.strip()
-#    return df
-
-#df_comuni = load_comuni()
-#lista_comuni = df_comuni["nome"].sort_values().unique()
-df_comuni["nome"] = df_comuni["denominazione_interno"].str.lower().str.strip()
-    
-    # Geocoding: aggiunge lat/lon se mancanti
-    def get_coords(comune):
-        try:
-            loc = geolocator.geocode(f"{comune}, Italia")
-            if loc:
-                return pd.Series([loc.latitude, loc.longitude])
-        except:
-            return pd.Series([np.nan, np.nan])
-        return pd.Series([np.nan, np.nan])
-
-    if "lat" not in df_comuni.columns or "lng" not in df_comuni.columns:
-        df_comuni[["lat", "lng"]] = df_comuni["nome"].apply(get_coords)
-    
-    df_comuni = df_comuni.dropna(subset=["lat", "lng"])
+@st.cache_data
+def load_comuni():
+    # Carica geojson dei comuni italiani
+    gdf = gpd.read_file("comuni.geojson")  # assicurati di avere il file locale o path corretto
+    # Centroidi
+    gdf["lat"] = gdf.geometry.centroid.y
+    gdf["lng"] = gdf.geometry.centroid.x
+    # Colonne utili
+    df_comuni = gdf[["name", "lat", "lng"]].copy()
+    df_comuni["nome"] = df_comuni["name"].str.lower().str.strip()
     return df_comuni
 
 df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
+
 # =========================
 # UI
 # =========================
