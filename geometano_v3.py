@@ -195,8 +195,9 @@ fig.update_layout(
     legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01,
                 bgcolor="rgba(50,50,50,0.7)", font=dict(color="white"))
 )
-st.plotly_chart(fig, use_container_width=True)
 
+# ✅ Imposta mappa più alta
+st.plotly_chart(fig, use_container_width=True, height=800)
 # =========================
 # TABELLA INTERATTIVA CON FLAG E TARIFFA
 # =========================
