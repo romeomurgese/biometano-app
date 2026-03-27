@@ -9,13 +9,12 @@ import numpy as np
 # CONFIG STREAMLIT
 # =========================
 st.set_page_config(layout="wide")
-st.title("🌱 Simulatore gara impianti trattamento rifiuti in Italia")
+st.markdown("<h1 style='text-align:center; color:green;'>🌱 Bioenerys Srl - Simulatore gara impianti rifiuti</h1>", unsafe_allow_html=True)
 
 # =========================
 # FUNZIONI
 # =========================
 def haversine(lat1, lon1, lat2, lon2):
-    """Calcola distanza in km tra due coordinate"""
     R = 6371
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
@@ -23,7 +22,6 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * asin(sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
-    """Crea coordinate di un cerchio attorno a lat/lon"""
     lat_circle = []
     lon_circle = []
     for theta in np.linspace(0, 2*np.pi, n_points):
@@ -63,19 +61,22 @@ df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# SIDEBAR - CRUSCOTTO INPUT
+# SIDEBAR SINISTRA
 # =========================
 st.sidebar.header("⚙️ Parametri gara")
 comune_sel = st.sidebar.selectbox("📍 Comune di gara", lista_comuni)
 raggio_km = st.sidebar.slider("📏 Raggio impianti (km)", 1, 200, 50)
+tariffa_base = st.sidebar.number_input("💰 Tariffa base di gara (€)", min_value=0.0, value=100.0, step=10.0)
 
 # Input manuale di impianti extra
-impianti_nomi = df["comune"].str.lower().sort_values().unique()
 impianto_extra = st.sidebar.text_input(
     "🔹 Aggiungi impianto manualmente (fuori dal raggio)", 
     "", 
     help="Scrivi il nome di un impianto e premi invio"
 )
+
+# Checkbox switch vista mappa
+vista_colorata = st.sidebar.checkbox("🔄 Mostra mappa colorata per totale (t)")
 
 # =========================
 # TROVA COORDINATE COMUNE
@@ -114,28 +115,46 @@ if df_filtrato.empty:
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-fig = px.scatter_mapbox(
-    df_filtrato,
-    lat="latitudine",
-    lon="longitudine",
-    size="totale (t)",
-    color="totale (t)",
-    hover_name="comune",
-    hover_data=["tipologia","totale (t)","distanza_km"],
-    center={"lat": lat_centro, "lon": lon_centro},
-    zoom=7,
-    height=600
-)
+if vista_colorata:
+    # Mappa colorata secondo totale (t)
+    fig = px.scatter_mapbox(
+        df_filtrato,
+        lat="latitudine",
+        lon="longitudine",
+        size="totale (t)",
+        color="totale (t)",
+        color_continuous_scale="Viridis",
+        hover_name="comune",
+        hover_data=["tipologia","totale (t)","distanza_km"],
+        center={"lat": lat_centro, "lon": lon_centro},
+        zoom=7,
+        height=600
+    )
+else:
+    # Puntini neri pieni con callout
+    fig = go.Figure()
+    for _, row in df_filtrato.iterrows():
+        fig.add_trace(go.Scattermapbox(
+            lat=[row["latitudine"]],
+            lon=[row["longitudine"]],
+            mode='markers+text',
+            marker=dict(size=10, color='black'),
+            text=row["comune"],
+            textposition="top center",
+            hoverinfo="text"
+        ))
 
+# Cerchio raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
     mode='lines',
     fill='toself',
-    fillcolor='rgba(0,200,0,0.1)',
+    fillcolor='rgba(0,200,0,0.05)',
     line=dict(color='green', width=2),
     name=f"Raggio {raggio_km} km"
 ))
+# Comune centrale
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
@@ -144,19 +163,20 @@ fig.add_trace(go.Scattermapbox(
     name="Comune di gara"
 ))
 
-# Migliora leggibilità legenda
+# Layout migliorato
 fig.update_layout(
-    mapbox_style="open-street-map",
+    mapbox_style="carto-positron",  # sfondo più chiaro
     legend=dict(
         title="Legenda",
         yanchor="top",
         y=0.99,
         xanchor="left",
         x=0.01,
-        bgcolor="rgba(255,255,255,0.7)"
-    )
+        bgcolor="rgba(0,0,0,0.5)",  # sfondo scuro trasparente per leggibilità
+        font=dict(color="white")
+    ),
+    margin={"r":0,"t":0,"l":0,"b":0}
 )
-
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
