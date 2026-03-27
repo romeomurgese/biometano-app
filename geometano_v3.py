@@ -47,16 +47,30 @@ df = load_data()
 # =========================
 # CARICA COMUNI DA CSV GITHUB
 # =========================
+#@st.cache_data
+#def load_comuni():
+    # url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"  # Sostituisci con il tuo CSV
+#    df = pd.read_csv(url)
+#    df["nome"] = df["nome"].str.lower().str.strip()
+#    return df
+
+#df_comuni = load_comuni()
+#lista_comuni = df_comuni["nome"].sort_values().unique()
 @st.cache_data
 def load_comuni():
-    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"  # Sostituisci con il tuo CSV
+    url = "https://raw.githubusercontent.com/napo/georef-italia-comuni/master/comuni.csv"
     df = pd.read_csv(url)
-    df["nome"] = df["nome"].str.lower().str.strip()
+
+    # Adattamento colonne
+    df["nome"] = df["comune"].str.lower().str.strip()
+    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+    df["lng"] = pd.to_numeric(df["lng"], errors="coerce")
+
+    df = df.dropna(subset=["lat", "lng"])
     return df
 
 df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
-
 # =========================
 # UI
 # =========================
