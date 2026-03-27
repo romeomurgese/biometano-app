@@ -126,14 +126,13 @@ if df_filtrato.empty:
     st.warning("⚠️ Nessun impianto trovato")
 
 # =========================
-# MAPPA OTTIMIZZATA
+# MAPPA CON SCALING RAGIONEVOLE PER COLOR MAP
 # =========================
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-# Impostazioni fisse
 map_center = {"lat": lat_centro, "lon": lon_centro}
-default_zoom = 7  # zoom fisso per visualizzare bene il comune e il raggio
+default_zoom = 7  # zoom fisso per il comune + raggio
 
 fig = go.Figure()
 
@@ -159,16 +158,21 @@ fig.add_trace(go.Scattermapbox(
     name="Comune di gara"
 ))
 
-# Impianti
-if color_map_on:
+if color_map_on and not df_filtrato.empty:
+    # Scaling dimensioni cerchi
+    min_size = 8
+    max_size = 30
+    tot_values = df_filtrato["totale (t)"].values
+    sizes = np.interp(tot_values, (tot_values.min(), tot_values.max()), (min_size, max_size))
+
     fig.add_trace(go.Scattermapbox(
         lat=df_filtrato["latitudine"],
         lon=df_filtrato["longitudine"],
         mode='markers+text',
         marker=dict(
-            size=df_filtrato["totale (t)"]/10 + 8,
-            sizemode='area',  # <--- importante per non far zoomare
-            color=df_filtrato["totale (t)"],
+            size=sizes,
+            sizemode='area',
+            color=tot_values,
             colorscale="YlOrRd",
             showscale=True,
             colorbar=dict(title="Totale (t)")
@@ -190,7 +194,7 @@ else:
         customdata=df_filtrato[["totale (t)","distanza_km"]]
     ))
 
-# Layout fisso con zoom e centro corretti
+# Layout fisso e leggibile
 fig.update_layout(
     mapbox_style="open-street-map",
     mapbox_center=map_center,
