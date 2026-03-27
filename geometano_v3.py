@@ -1,23 +1,23 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
+from math import radians, cos, sin, asin
 import numpy as np
-from math import radians, cos, sin, asin, sqrt
+from PIL import Image
+import requests
+from io import BytesIO
 
 # =========================
-# CONFIG
+# CONFIG STREAMLIT
 # =========================
-st.set_page_config(layout="wide", page_title="Simulatore gare Bioenerys Srl")
-
-# Titolo e logo placeholder
-st.markdown(
-    """
-    <div style='display:flex; align-items:center;'>
-        <img src='https://upload.wikimedia.org/wikipedia/commons/6/6e/Placeholder_logo.png' width='60'>
-        <h2 style='margin-left:15px;'>Bioenerys Srl - Simulatore gare impianti trattamento rifiuti</h2>
-    </div>
-    """, unsafe_allow_html=True
-)
+st.set_page_config(layout="wide")
+# Logo + titolo
+logo_url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/bioenerys_logo.png"  # placeholder
+response = requests.get(logo_url)
+logo_img = Image.open(BytesIO(response.content))
+st.image(logo_img, width=120)
+st.title("🌱 Bioenerys Srl - Simulatore gara impianti rifiuti in Italia")
 
 # =========================
 # FUNZIONI
@@ -27,11 +27,10 @@ def haversine(lat1, lon1, lat2, lon2):
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
     a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
-    return 2 * R * asin(sqrt(a))
+    return 2 * R * asin(np.sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
-    lat_circle = []
-    lon_circle = []
+    lat_circle, lon_circle = [], []
     for theta in np.linspace(0, 2*np.pi, n_points):
         dlat = (r_km/6371) * (180/np.pi) * np.sin(theta)
         dlon = (r_km/6371) * (180/np.pi) * np.cos(theta) / cos(radians(lat))
@@ -40,7 +39,7 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# CARICA DATI IMPIANTI
+# CARICA DATI
 # =========================
 @st.cache_data
 def load_data():
@@ -49,14 +48,11 @@ def load_data():
     df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(1)
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
     df["longitudine"] = pd.to_numeric(df["longitudine"], errors='coerce')
-    df = df.dropna(subset=["latitudine","longitudine"])
+    df = df.dropna(subset=["latitudine", "longitudine"])
     return df
 
 df = load_data()
 
-# =========================
-# CARICA COMUNI
-# =========================
 @st.cache_data
 def load_comuni():
     df_comuni = pd.read_csv("comuni.csv")
@@ -67,23 +63,18 @@ df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# SIDEBAR - CRUSCOTTO INPUT
+# SIDEBAR - INPUT
 # =========================
 st.sidebar.header("⚙️ Parametri gara")
 comune_sel = st.sidebar.selectbox("📍 Comune di gara", lista_comuni)
 raggio_km = st.sidebar.slider("📏 Raggio impianti (km)", 1, 200, 50)
-tariffa_base = st.sidebar.number_input("💰 Tariffa base di gara (€)", min_value=0.0, value=100.0, step=1.0)
-
-# Checkbox per color map
-color_map = st.sidebar.checkbox("🌈 Color map secondo totale (t)", value=False)
-
-# Input manuale di impianti extra
+tariffa_base = st.sidebar.number_input("💰 Tariffa base di gara (€)", min_value=0, value=50)
 impianti_nomi = df["comune"].str.lower().sort_values().unique()
 impianto_extra = st.sidebar.text_input(
-    "🔹 Aggiungi impianto manualmente (fuori dal raggio)", 
-    "", 
+    "🔹 Aggiungi impianto manualmente (fuori dal raggio)", "",
     help="Scrivi il nome di un impianto e premi invio"
 )
+color_map_attivo = st.sidebar.checkbox("🎨 Color map secondo totale (t)")
 
 # =========================
 # TROVA COMUNE SELEZIONATO
@@ -93,7 +84,6 @@ match = df_comuni[df_comuni["nome"] == comune_sel_clean]
 if match.empty:
     st.error("❌ Comune non trovato")
     st.stop()
-
 row_comune = match.iloc[0]
 lat_centro = row_comune["lat"]
 lon_centro = row_comune["lng"]
@@ -122,12 +112,9 @@ if df_filtrato.empty:
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-# Zoom iniziale basato sul raggio
-zoom_iniziale = max(6, 10 - raggio_km/25)
-
 fig = go.Figure()
 
-# Raggio
+# Trace raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
@@ -138,61 +125,67 @@ fig.add_trace(go.Scattermapbox(
     name=f"Raggio {raggio_km} km"
 ))
 
-# Comune di gara
+# Trace comune di gara
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
     mode='markers+text',
+    text=[comune_sel],
+    textposition="top center",
     marker=dict(size=14, color='red'),
-    text=[comune_sel.capitalize()],
-    textposition="top right",
     name="Comune di gara"
 ))
 
-# Impianti
-for idx, row in df_filtrato.iterrows():
-    if color_map:
-        size = max(5, row["totale (t)"]**0.5)
-        color = row["totale (t)"]
+# Trace impianti
+if not df_filtrato.empty:
+    if color_map_attivo:
+        # Color map secondo totale
+        fig.add_trace(go.Scattermapbox(
+            lat=df_filtrato["latitudine"],
+            lon=df_filtrato["longitudine"],
+            mode='markers+text',
+            text=df_filtrato["comune"],
+            textposition="top center",
+            marker=dict(
+                size=df_filtrato["totale (t)"].apply(lambda x: max(8, x/10)),
+                color=df_filtrato["totale (t)"],
+                colorscale="Viridis",
+                colorbar=dict(title="Totale (t)"),
+                sizemode="area",
+                opacity=0.7
+            ),
+            hoverinfo="text+lat+lon",
+            name="Totale (t)"
+        ))
     else:
-        size = 8
-        color = "black"
+        # Punti neri pieni
+        fig.add_trace(go.Scattermapbox(
+            lat=df_filtrato["latitudine"],
+            lon=df_filtrato["longitudine"],
+            mode='markers+text',
+            text=df_filtrato["comune"],
+            textposition="top center",
+            marker=dict(size=10, color="black"),
+            hoverinfo="text+lat+lon",
+            name="Impianti"
+        ))
 
-    fig.add_trace(go.Scattermapbox(
-        lat=[row["latitudine"]],
-        lon=[row["longitudine"]],
-        mode='markers+text',
-        marker=dict(
-            size=size, 
-            color=color, 
-            showscale=color_map, 
-            colorscale="Viridis" if color_map else None,
-            colorbar=dict(
-                title="Totale (t)",
-                thickness=15,
-                x=0.95,
-                y=0.5,
-                outlinecolor="rgba(0,0,0,0.5)",
-                titleside="right"
-            ) if color_map else None
-        ),
-        text=[row["comune"]],
-        textposition="top center",
-        hoverinfo="text",
-        name=row["comune"]
-    ))
-
-# Layout mappa
+# Layout
 fig.update_layout(
     mapbox_style="open-street-map",
-    mapbox=dict(center={"lat": lat_centro, "lon": lon_centro}, zoom=zoom_iniziale),
+    mapbox_center={"lat": lat_centro, "lon": lon_centro},
+    mapbox_zoom=6,  # zoom iniziale moderato
     legend=dict(
         title="Legenda",
-        itemsizing='constant',
-        bgcolor="rgba(0,0,0,0.6)",
-        x=0.01, y=0.99
+        itemsizing="constant",
+        yanchor="top",
+        y=0.99,
+        xanchor="left",
+        x=0.01,
+        bgcolor="rgba(50,50,50,0.7)",
+        font=dict(color="white")
     ),
-    margin={"l":0,"r":0,"t":0,"b":0}
+    height=600
 )
 
 st.plotly_chart(fig, use_container_width=True)
