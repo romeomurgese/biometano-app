@@ -1,3 +1,6 @@
+!pip install geopandas
+!apt-get install -y libspatialindex-dev
+
 import streamlit as st
 import pandas as pd
 import geopandas as gpd
