@@ -49,7 +49,7 @@ df = load_data()
 # =========================
 @st.cache_data
 def load_comuni():
-    url = "https://raw.githubusercontent.com/TUOUSERNAME/TUOREPO/main/comuni.csv"
+    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"  # Sostituisci con il tuo CSV
     df = pd.read_csv(url)
     df["nome"] = df["nome"].str.lower().str.strip()
     return df
