@@ -126,14 +126,14 @@ if df_filtrato.empty:
     st.warning("⚠️ Nessun impianto trovato")
 
 # =========================
-# MAPPA
+# MAPPA OTTIMIZZATA
 # =========================
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-# Impostazioni default
+# Impostazioni fisse
 map_center = {"lat": lat_centro, "lon": lon_centro}
-default_zoom = 8  # zoom iniziale più ragionevole
+default_zoom = 7  # zoom fisso per visualizzare bene il comune e il raggio
 
 fig = go.Figure()
 
@@ -166,7 +166,8 @@ if color_map_on:
         lon=df_filtrato["longitudine"],
         mode='markers+text',
         marker=dict(
-            size=df_filtrato["totale (t)"]/10 + 8,  # dimensione proporzionale
+            size=df_filtrato["totale (t)"]/10 + 8,
+            sizemode='area',  # <--- importante per non far zoomare
             color=df_filtrato["totale (t)"],
             colorscale="YlOrRd",
             showscale=True,
@@ -189,6 +190,7 @@ else:
         customdata=df_filtrato[["totale (t)","distanza_km"]]
     ))
 
+# Layout fisso con zoom e centro corretti
 fig.update_layout(
     mapbox_style="open-street-map",
     mapbox_center=map_center,
@@ -200,7 +202,7 @@ fig.update_layout(
         y=0.99,
         xanchor="left",
         x=0.01,
-        bgcolor="rgba(0,0,0,0.5)",  # sfondo scuro semi-trasparente
+        bgcolor="rgba(0,0,0,0.5)",
         font=dict(color="white")
     ),
     margin=dict(l=10, r=10, t=10, b=10)
