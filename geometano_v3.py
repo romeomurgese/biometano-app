@@ -6,10 +6,18 @@ from math import radians, cos, sin, asin, sqrt
 import numpy as np
 
 # =========================
-# CONFIG STREAMLIT
+# HEADER + LOGO
 # =========================
 st.set_page_config(layout="wide")
-st.markdown("<h1 style='text-align:center; color:green;'>🌱 Bioenerys Srl - Simulatore gara impianti rifiuti</h1>", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <img src="https://via.placeholder.com/200x100.png?text=Bioenerys+Srl" style="height: 60px;"/>
+        <h1 style="margin: 0;">Simulatore Gara Impianti Trattamento Rifiuti</h1>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # =========================
 # FUNZIONI
@@ -22,8 +30,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * asin(sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
-    lat_circle = []
-    lon_circle = []
+    lat_circle, lon_circle = [], []
     for theta in np.linspace(0, 2*np.pi, n_points):
         dlat = (r_km/6371) * (180/np.pi) * np.sin(theta)
         dlon = (r_km/6371) * (180/np.pi) * np.cos(theta) / cos(radians(lat))
@@ -32,64 +39,58 @@ def circle_coords(lat, lon, r_km, n_points=100):
     return lat_circle, lon_circle
 
 # =========================
-# CARICA DATI IMPIANTI
+# CARICA DATI
 # =========================
 @st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/impianti_geocodificati.xlsx"
     df = pd.read_excel(url)
     df.columns = df.columns.str.lower()
-    df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(1)
-    df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
-    df["longitudine"] = pd.to_numeric(df["longitudine"], errors='coerce')
-    df = df.dropna(subset=["latitudine", "longitudine"])
-    return df
+    df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors="coerce").fillna(1)
+    df["latitudine"] = pd.to_numeric(df["latitudine"], errors="coerce")
+    df["longitudine"] = pd.to_numeric(df["longitudine"], errors="coerce")
+    return df.dropna(subset=["latitudine", "longitudine"])
 
 df = load_data()
 
-# =========================
-# CARICA COMUNI CSV
-# =========================
 @st.cache_data
 def load_comuni():
-    url_comuni = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"
-    df_comuni = pd.read_csv(url_comuni)
-    df_comuni["nome"] = df_comuni["name"].str.lower().str.strip()
-    return df_comuni
+    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"
+    dfc = pd.read_csv(url)
+    dfc["nome"] = dfc["name"].str.lower().str.strip()
+    return dfc
 
 df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
 
 # =========================
-# SIDEBAR SINISTRA
+# SIDEBAR
 # =========================
-st.sidebar.header("⚙️ Parametri gara")
-comune_sel = st.sidebar.selectbox("📍 Comune di gara", lista_comuni)
-raggio_km = st.sidebar.slider("📏 Raggio impianti (km)", 1, 200, 50)
-tariffa_base = st.sidebar.number_input("💰 Tariffa base di gara (€)", min_value=0.0, value=100.0, step=10.0)
+st.sidebar.header("⚙️ Parametri Gara")
+comune_sel = st.sidebar.selectbox("📍 Comune di Gara", lista_comuni)
+raggio_km = st.sidebar.slider("📏 Raggio Impianti (km)", 1, 200, 50)
+tariffa_base = st.sidebar.number_input("💰 Tariffa Base di Gara (€)", min_value=0.0, value=100.0, step=10.0)
 
-# Input manuale di impianti extra
 impianto_extra = st.sidebar.text_input(
-    "🔹 Aggiungi impianto manualmente (fuori dal raggio)", 
-    "", 
-    help="Scrivi il nome di un impianto e premi invio"
+    "🔹 Aggiungi impianto extra",
+    "",
+    help="Inserisci il nome di un impianto anche fuori raggio"
 )
 
-# Checkbox switch vista mappa
-vista_colorata = st.sidebar.checkbox("🔄 Mostra mappa colorata per totale (t)")
+vista_colorata = st.sidebar.checkbox("🔄 Mappa colorata per Totale (t)")
 
 # =========================
-# TROVA COORDINATE COMUNE
+# CALCOLO COORDINATE COMUNE
 # =========================
-comune_sel_clean = str(comune_sel).strip().lower()
+comune_sel_clean = comune_sel.strip().lower()
 match = df_comuni[df_comuni["nome"] == comune_sel_clean]
+
 if match.empty:
     st.error("❌ Comune non trovato")
     st.stop()
 
-row_comune = match.iloc[0]
-lat_centro = row_comune["lat"]
-lon_centro = row_comune["lng"]
+lat_centro = match.iloc[0]["lat"]
+lon_centro = match.iloc[0]["lng"]
 
 # =========================
 # CALCOLO DISTANZE
@@ -97,26 +98,30 @@ lon_centro = row_comune["lng"]
 df["distanza_km"] = df.apply(
     lambda r: haversine(lat_centro, lon_centro, r["latitudine"], r["longitudine"]), axis=1
 ).round(1)
+
 df_filtrato = df[df["distanza_km"] <= raggio_km]
 
-# Aggiungi impianto extra se valido
-if impianto_extra.strip() != "":
-    imp_sel = df[df["comune"].str.lower() == impianto_extra.strip().lower()]
-    if not imp_sel.empty:
-        df_filtrato = pd.concat([df_filtrato, imp_sel]).drop_duplicates()
+if impianto_extra.strip():
+    extra_sel = df[df["comune"].str.lower() == impianto_extra.strip().lower()]
+    if not extra_sel.empty:
+        df_filtrato = pd.concat([df_filtrato, extra_sel]).drop_duplicates()
 
-st.write(f"🔎 Impianti trovati nel raggio o selezionati: {len(df_filtrato)}")
-if df_filtrato.empty:
-    st.warning("⚠️ Nessun impianto trovato")
+# =========================
+# DASHBOARD METRICHE
+# =========================
+st.subheader("📊 Statistiche Gara")
+col1, col2, col3 = st.columns(3)
+col1.metric("Impianti Totali", len(df_filtrato))
+col2.metric("Totale (t) 🔋", f"{df_filtrato['totale (t)'].sum():,.1f}")
+col3.metric("Tariffa Base (€)", f"{tariffa_base:,.2f}")
 
 # =========================
 # MAPPA
 # =========================
-st.subheader("📍 Mappa impianti e raggio di gara")
+st.subheader("📍 Mappa Impianti e Raggio Gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
 if vista_colorata:
-    # Mappa colorata secondo totale (t)
     fig = px.scatter_mapbox(
         df_filtrato,
         lat="latitudine",
@@ -125,64 +130,62 @@ if vista_colorata:
         color="totale (t)",
         color_continuous_scale="Viridis",
         hover_name="comune",
-        hover_data=["tipologia","totale (t)","distanza_km"],
+        hover_data=["tipologia", "totale (t)", "distanza_km"],
         center={"lat": lat_centro, "lon": lon_centro},
         zoom=7,
         height=600
     )
 else:
-    # Puntini neri pieni con callout
     fig = go.Figure()
     for _, row in df_filtrato.iterrows():
         fig.add_trace(go.Scattermapbox(
             lat=[row["latitudine"]],
             lon=[row["longitudine"]],
-            mode='markers+text',
-            marker=dict(size=10, color='black'),
+            mode="markers+text",
+            marker=dict(size=10, color="black"),
             text=row["comune"],
             textposition="top center",
             hoverinfo="text"
         ))
 
-# Cerchio raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
-    mode='lines',
-    fill='toself',
-    fillcolor='rgba(0,200,0,0.05)',
-    line=dict(color='green', width=2),
+    mode="lines",
+    fill="toself",
+    fillcolor="rgba(0,200,0,0.05)",
+    line=dict(color="green", width=2),
     name=f"Raggio {raggio_km} km"
 ))
-# Comune centrale
+
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
-    mode='markers',
-    marker=dict(size=14, color='red'),
-    name="Comune di gara"
+    mode="markers",
+    marker=dict(size=14, color="red"),
+    name="Comune di Gara"
 ))
 
-# Layout migliorato
 fig.update_layout(
-    mapbox_style="carto-positron",  # sfondo più chiaro
+    mapbox_style="carto-positron",
     legend=dict(
         title="Legenda",
         yanchor="top",
         y=0.99,
         xanchor="left",
         x=0.01,
-        bgcolor="rgba(0,0,0,0.5)",  # sfondo scuro trasparente per leggibilità
+        bgcolor="rgba(0,0,0,0.5)",
         font=dict(color="white")
     ),
-    margin={"r":0,"t":0,"l":0,"b":0}
+    margin=dict(r=0, t=0, l=0, b=0)
 )
+
 st.plotly_chart(fig, use_container_width=True)
 
 # =========================
 # TABELLA IMPIANTI
 # =========================
-st.subheader("📋 Impianti partecipanti")
-colonne_visibili = ["comune","tipologia","totale (t)","distanza_km"]
+st.subheader("📋 Impianti Partecipanti")
+col_vis = ["comune", "tipologia", "totale (t)", "distanza_km"]
 if not df_filtrato.empty:
-    st.dataframe(df_filtrato[colonne_visibili])
+    st.dataframe(df_filtrato[col_vis])
