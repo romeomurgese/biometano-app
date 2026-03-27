@@ -56,18 +56,23 @@ df = load_data()
 
 #df_comuni = load_comuni()
 #lista_comuni = df_comuni["nome"].sort_values().unique()
-@st.cache_data
-def load_comuni():
-    url = "https://raw.githubusercontent.com/napo/georef-italia-comuni/master/comuni.csv"
-    df = pd.read_csv(url)
+df_comuni["nome"] = df_comuni["denominazione_interno"].str.lower().str.strip()
+    
+    # Geocoding: aggiunge lat/lon se mancanti
+    def get_coords(comune):
+        try:
+            loc = geolocator.geocode(f"{comune}, Italia")
+            if loc:
+                return pd.Series([loc.latitude, loc.longitude])
+        except:
+            return pd.Series([np.nan, np.nan])
+        return pd.Series([np.nan, np.nan])
 
-    # Adattamento colonne
-    df["nome"] = df["comune"].str.lower().str.strip()
-    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-    df["lng"] = pd.to_numeric(df["lng"], errors="coerce")
-
-    df = df.dropna(subset=["lat", "lng"])
-    return df
+    if "lat" not in df_comuni.columns or "lng" not in df_comuni.columns:
+        df_comuni[["lat", "lng"]] = df_comuni["nome"].apply(get_coords)
+    
+    df_comuni = df_comuni.dropna(subset=["lat", "lng"])
+    return df_comuni
 
 df_comuni = load_comuni()
 lista_comuni = df_comuni["nome"].sort_values().unique()
