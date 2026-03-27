@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import geopandas as gpd
 import plotly.express as px
 import plotly.graph_objects as go
 from math import radians, cos, sin, asin, sqrt
@@ -46,18 +45,13 @@ def load_data():
 df = load_data()
 
 # =========================
-# CARICA COMUNI CON GEOJSON
+# CARICA COMUNI DA CSV (GITHUB)
 # =========================
 @st.cache_data
 def load_comuni():
-    # Carica geojson dei comuni italiani
-    gdf = gpd.read_file("comuni.geojson")  # assicurati di avere il file locale o path corretto
-    # Centroidi
-    gdf["lat"] = gdf.geometry.centroid.y
-    gdf["lng"] = gdf.geometry.centroid.x
-    # Colonne utili
-    df_comuni = gdf[["name", "lat", "lng"]].copy()
-    df_comuni["nome"] = df_comuni["name"].str.lower().str.strip()
+    url = "https://raw.githubusercontent.com/romeomurgese/biometano-app/main/comuni.csv"
+    df_comuni = pd.read_csv(url)
+    df_comuni["nome"] = df_comuni["nome"].str.lower().str.strip()
     return df_comuni
 
 df_comuni = load_comuni()
