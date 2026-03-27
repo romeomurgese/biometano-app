@@ -217,7 +217,35 @@ st.plotly_chart(fig, use_container_width=True)
 # =========================
 # TABELLA IMPIANTI
 # =========================
+# =========================
+# TABELLA INTERATTIVA IMPiANTI
+# =========================
 st.subheader("📋 Impianti partecipanti")
-colonne_visibili = ["comune","tipologia","totale (t)","distanza_km"]
-if not df_filtrato.empty:
-    st.dataframe(df_filtrato[colonne_visibili])
+
+# Aggiungi colonne per checkbox e tariffa
+df_filtrato = df_filtrato.copy()
+if "in_gara" not in df_filtrato.columns:
+    df_filtrato["in_gara"] = True  # di default tutti selezionati
+if "tariffa" not in df_filtrato.columns:
+    df_filtrato["tariffa"] = raggio_km  # puoi mettere qui tariffa base di default o 0
+
+# Colonne visibili
+colonne_visibili = ["in_gara", "comune", "tipologia", "totale (t)", "distanza_km", "tariffa"]
+
+# Editor interattivo
+edited_df = st.data_editor(
+    df_filtrato[colonne_visibili],
+    column_config={
+        "in_gara": st.column_config.CheckboxColumn("In gara"),
+        "tariffa": st.column_config.NumberColumn(
+            "Tariffa (€)", min_value=0.0, step=1.0, format="%0.2f"
+        ),
+    },
+    hide_index=True,
+    key="impianti_editor"
+)
+
+# Filtra solo impianti flaggati
+df_finale = edited_df[edited_df["in_gara"] == True]
+
+st.write(f"🔎 Impianti confermati in gara: {len(df_finale)}")
