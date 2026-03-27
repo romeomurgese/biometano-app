@@ -86,6 +86,14 @@ impianti_extra = st.sidebar.multiselect(
     default=[]
 )
 
+# Filtro tipologia impianti
+tipologie_disponibili = df["tipologia"].dropna().unique()
+tipologie_sel = st.sidebar.multiselect(
+    "🏭 Seleziona tipologie impianto", 
+    options=tipologie_disponibili,
+    default=tipologie_disponibili
+)
+
 use_color_map = st.sidebar.checkbox("🎨 Color map secondo totale (t)", value=False)
 
 # =========================
@@ -115,6 +123,9 @@ if impianti_extra:
     imp_sel = df[df["comune"].str.lower().isin(impianti_extra)]
     df_filtrato = pd.concat([df_filtrato, imp_sel]).drop_duplicates().reset_index(drop=True)
 
+# Filtro tipologie
+df_filtrato = df_filtrato[df_filtrato["tipologia"].isin(tipologie_sel)]
+
 # Flag attivi per rimuovere impianti
 if "flag" not in df_filtrato.columns:
     df_filtrato["flag"] = True
@@ -125,9 +136,7 @@ if "flag" not in df_filtrato.columns:
 st.subheader("📍 Mappa impianti e raggio di gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-# Base map con raggio e comune
 fig = go.Figure()
-
 # Cerchio raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
@@ -153,7 +162,6 @@ fig.add_trace(go.Scattermapbox(
 # Punti impianti filtrati
 df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
 if not df_finale.empty:
-    df_finale["totale (t)"] = pd.to_numeric(df_finale["totale (t)"], errors='coerce').fillna(1)
     hover_cols = [c for c in ["tipologia","totale (t)","distanza_km"] if c in df_finale.columns]
     
     if use_color_map:
@@ -184,7 +192,8 @@ if not df_finale.empty:
 fig.update_layout(
     mapbox_style="open-street-map",
     mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
-    legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(50,50,50,0.7)", font=dict(color="white"))
+    legend=dict(title="Legenda", yanchor="top", y=0.99, xanchor="left", x=0.01,
+                bgcolor="rgba(50,50,50,0.7)", font=dict(color="white"))
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -194,7 +203,6 @@ st.plotly_chart(fig, use_container_width=True)
 st.subheader("📋 Impianti partecipanti")
 
 if not df_finale.empty:
-    # Creiamo una lista per raccogliere i dati aggiornati
     rows = []
     for idx in df_finale.index:
         col1, col2 = st.columns([0.2,0.8])
@@ -207,12 +215,10 @@ if not df_finale.empty:
                 step=1.0,
                 key=f"tar_{idx}"
             )
-        # Aggiorna riga solo se flag True
         if flag:
             row = df_finale.loc[idx].to_dict()
             row["tariffa (€)"] = tariffa
             rows.append(row)
-    # Dataframe finale mostrato
     df_mostra = pd.DataFrame(rows)
     if not df_mostra.empty:
         st.dataframe(df_mostra[["comune","tipologia","totale (t)","distanza_km","tariffa (€)"]])
