@@ -9,15 +9,12 @@ import numpy as np
 # HEADER + LOGO
 # =========================
 st.set_page_config(layout="wide")
-st.markdown(
-    """
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <img src="https://via.placeholder.com/200x100.png?text=Bioenerys+Srl" style="height: 60px;"/>
-        <h1 style="margin: 0;">Simulatore Gara Impianti Trattamento Rifiuti</h1>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+
+col_logo, col_title = st.columns([1,5])
+with col_logo:
+    st.image("https://via.placeholder.com/200x100.png?text=Bioenerys+Srl", width=150)
+with col_title:
+    st.markdown("<h1 style='margin:0; padding-top:20px;'>Simulatore Gara Impianti Trattamento Rifiuti</h1>", unsafe_allow_html=True)
 
 # =========================
 # FUNZIONI
@@ -121,43 +118,34 @@ col3.metric("Tariffa Base (€)", f"{tariffa_base:,.2f}")
 st.subheader("📍 Mappa Impianti e Raggio Gara")
 lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
-if vista_colorata:
-    fig = px.scatter_mapbox(
-        df_filtrato,
-        lat="latitudine",
-        lon="longitudine",
-        size="totale (t)",
-        color="totale (t)",
-        color_continuous_scale="Viridis",
-        hover_name="comune",
-        hover_data=["tipologia", "totale (t)", "distanza_km"],
-        center={"lat": lat_centro, "lon": lon_centro},
-        zoom=7,
-        height=600
-    )
-else:
-    fig = go.Figure()
-    for _, row in df_filtrato.iterrows():
-        fig.add_trace(go.Scattermapbox(
-            lat=[row["latitudine"]],
-            lon=[row["longitudine"]],
-            mode="markers+text",
-            marker=dict(size=10, color="black"),
-            text=row["comune"],
-            textposition="top center",
-            hoverinfo="text"
-        ))
+fig = go.Figure()
 
+# punti impianti
+for _, row in df_filtrato.iterrows():
+    fig.add_trace(go.Scattermapbox(
+        lat=[row["latitudine"]],
+        lon=[row["longitudine"]],
+        mode="markers+text",
+        marker=dict(size=10, color="black"),
+        text=row["comune"],
+        textposition="top center",
+        hovertemplate="%{text}<br>Totale: %{customdata[0]} t<br>Distanza: %{customdata[1]} km",
+        customdata=[[row["totale (t)"], row["distanza_km"]]],
+        showlegend=False
+    ))
+
+# Raggio
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
     mode="lines",
     fill="toself",
-    fillcolor="rgba(0,200,0,0.05)",
+    fillcolor="rgba(0,200,0,0.1)",
     line=dict(color="green", width=2),
     name=f"Raggio {raggio_km} km"
 ))
 
+# Comune di gara
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
@@ -168,6 +156,8 @@ fig.add_trace(go.Scattermapbox(
 
 fig.update_layout(
     mapbox_style="carto-positron",
+    mapbox_center={"lat": lat_centro, "lon": lon_centro},
+    mapbox_zoom=10,
     legend=dict(
         title="Legenda",
         yanchor="top",
