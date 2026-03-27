@@ -1,9 +1,5 @@
 streamlit
 pandas
-geopandas
 numpy
 plotly
 openpyxl
-shapely
-pyproj
-fiona
