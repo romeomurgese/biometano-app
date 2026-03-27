@@ -9,7 +9,7 @@ from PIL import Image
 import requests
 
 st.set_page_config(layout="wide")
-st.title("🌱 Bioenerys Srl - Simulatore gara impianti trattamento rifiuti")
+st.title("🌱 Bioenerys Srl - Simulatore gara")
 
 # =========================
 # FUNZIONI
@@ -110,7 +110,7 @@ df_finale = df_filtrato[df_filtrato["flag"] == True].drop_duplicates()
 # =========================
 # TABELLA INTERATTIVA SOPRA MAPPA
 # =========================
-st.subheader("📋 Impianti partecipanti - gestione")
+st.subheader("📋 Impianti partecipanti")
 for idx, row in df_filtrato.iterrows():
     cols = st.columns([0.1, 0.3, 0.3, 0.3, 0.3])
     flag = cols[0].checkbox("", value=row["flag"], key=f"flag_{idx}")
