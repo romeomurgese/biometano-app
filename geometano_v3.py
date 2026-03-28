@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from math import radians, cos, sin, asin
 import time
+import unicodedata
 
 st.set_page_config(layout="wide")
 st.title("🌱 Bioenerys Srl - Simulatore gara")
@@ -34,14 +35,24 @@ def circle_coords(lat, lon, r_km, n_points=100):
         lon_circle.append(lon + dlon)
     return lat_circle, lon_circle
 
+# Normalizza nomi colonna per evitare problemi con accenti/spazi
+def normalize_cols(df):
+    df.columns = (
+        df.columns
+        .str.lower()
+        .str.replace(" ", "_")
+        .apply(lambda x: unicodedata.normalize('NFKD', x).encode('ascii', errors='ignore').decode('utf-8'))
+    )
+    return df
+
 # =========================
 # LOAD DATI
 # =========================
 @st.cache_data
 def load_data():
     df = pd.read_excel("impianti_geocodificati.xlsx")
-    df.columns = df.columns.str.lower()
-    df["totale (t)"] = pd.to_numeric(df["totale (t)"], errors='coerce').fillna(1)
+    df = normalize_cols(df)
+    df["totale_(t)"] = pd.to_numeric(df["totale_(t)"], errors='coerce').fillna(1)
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
     df["longitudine"] = pd.to_numeric(df["longitudine"], errors='coerce')
     df["flag"] = True
@@ -124,13 +135,13 @@ df_filtrato["offerta"] = offerte
 st.subheader("📋 Impianti partecipanti")
 
 df_table = df_filtrato[[
-    "flag", "label", "tipologia", "società", "totale (t)", "distanza_km","offerta"
+    "flag", "label", "tipologia", "societa", "totale_(t)", "distanza_km","offerta"
 ]].rename(columns={
     "flag":"Seleziona",
     "label":"Impianto",
     "tipologia":"Tipologia",
-    "società":"Società",
-    "totale (t)":"Quantità",
+    "societa":"Società",
+    "totale_(t)":"Quantità",
     "distanza_km":"Distanza",
     "offerta":"Offerta (€)"
 })
@@ -157,6 +168,53 @@ for _, r in edited.iterrows():
 
 df_filtrato["flag"] = edited["Seleziona"].values
 df_filtrato["offerta"] = edited["Offerta (€)"].values
+
+# =========================
+# MAPPA (sempre visibile)
+# =========================
+st.subheader("📍 Mappa")
+
+lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
+
+fig = go.Figure()
+
+# Cerchio raggio
+fig.add_trace(go.Scattermapbox(
+    lat=lat_circle,
+    lon=lon_circle,
+    mode='lines',
+    fill='toself',
+    fillcolor='rgba(0,200,0,0.1)',
+    line=dict(color='green'),
+    name=f"Raggio {raggio_km} km"
+))
+
+# Comune centrale
+fig.add_trace(go.Scattermapbox(
+    lat=[lat_centro],
+    lon=[lon_centro],
+    mode='markers',
+    marker=dict(size=14, color='red'),
+    name="Comune"
+))
+
+# Impianti filtrati
+fig.add_trace(go.Scattermapbox(
+    lat=df_filtrato["latitudine"],
+    lon=df_filtrato["longitudine"],
+    mode='markers+text',
+    text=df_filtrato["label"],
+    marker=dict(size=10, color='black'),
+    name="Impianti"
+))
+
+fig.update_layout(
+    mapbox_style="open-street-map",
+    mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
+    height=800
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # =========================
 # BOTTONE SIMULAZIONE
@@ -230,45 +288,3 @@ if simula:
         title="📊 Ranking offerte",
     )
     st.plotly_chart(fig_bar, use_container_width=True)
-
-    # =========================
-    # MAPPA
-    # =========================
-    st.subheader("📍 Mappa")
-
-    lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scattermapbox(
-        lat=lat_circle,
-        lon=lon_circle,
-        mode='lines',
-        fill='toself',
-        fillcolor='rgba(0,200,0,0.1)',
-        line=dict(color='green')
-    ))
-
-    fig.add_trace(go.Scattermapbox(
-        lat=[lat_centro],
-        lon=[lon_centro],
-        mode='markers',
-        marker=dict(size=14, color='red'),
-        name="Comune"
-    ))
-
-    fig.add_trace(go.Scattermapbox(
-        lat=df_finale["latitudine"],
-        lon=df_finale["longitudine"],
-        mode='markers+text',
-        text=df_finale["label"],
-        marker=dict(size=10, color='black')
-    ))
-
-    fig.update_layout(
-        mapbox_style="open-street-map",
-        mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
-        height=800
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
