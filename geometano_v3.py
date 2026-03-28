@@ -2,13 +2,15 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 from math import radians, cos, sin, asin
+import time
 
 st.set_page_config(layout="wide")
 st.title("🌱 Bioenerys Srl - Simulatore gara")
 
 # =========================
-# SESSION STATE INIT
+# SESSION STATE
 # =========================
 if "offerte_custom" not in st.session_state:
     st.session_state.offerte_custom = {}
@@ -24,8 +26,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * asin(np.sqrt(a))
 
 def circle_coords(lat, lon, r_km, n_points=100):
-    lat_circle = []
-    lon_circle = []
+    lat_circle, lon_circle = [], []
     for theta in np.linspace(0, 2*np.pi, n_points):
         dlat = (r_km/6371) * (180/np.pi) * np.sin(theta)
         dlon = (r_km/6371) * (180/np.pi) * np.cos(theta) / cos(radians(lat))
@@ -60,26 +61,26 @@ lista_comuni = df_comuni["nome"].sort_values().unique()
 # =========================
 # SIDEBAR
 # =========================
-st.sidebar.header("⚙️ Parametri generali")
+st.sidebar.header("⚙️ Parametri")
 
-comune_sel = st.sidebar.selectbox("📍 Comune di gara", lista_comuni)
+comune_sel = st.sidebar.selectbox("📍 Comune", lista_comuni)
 raggio_km = st.sidebar.slider("📏 Raggio (km)", 1, 200, 50)
 tariffa_base = st.sidebar.number_input("💰 Tariffa base (€)", value=100.0)
+penale_km = st.sidebar.number_input("⚖️ Penalità €/km", value=0.5)
 
 tipologie = df["tipologia"].dropna().unique()
 tipologie_sel = st.sidebar.multiselect("🏭 Tipologie", tipologie, default=list(tipologie))
 
-penale_km = st.sidebar.number_input("⚖️ Penalità €/km", value=0.5)
-
-# EXTRA impianti (dropdown serio)
+# Label impianti
 df["label"] = df["comune"] + " (" + df["provincia"].fillna("") + ")"
+
 extra_sel = st.sidebar.multiselect(
-    "➕ Aggiungi impianti extra",
+    "➕ Impianti extra",
     df["label"].unique()
 )
 
 # =========================
-# CENTRO COMUNE
+# CENTRO
 # =========================
 row = df_comuni[df_comuni["nome"] == comune_sel].iloc[0]
 lat_centro = row["lat"]
@@ -94,14 +95,13 @@ df["distanza_km"] = df.apply(
 ).round(1)
 
 # =========================
-# FILTRI
+# FILTRO
 # =========================
 df_filtrato = df[
     (df["tipologia"].isin(tipologie_sel)) &
     (df["distanza_km"] <= raggio_km)
 ]
 
-# aggiungi extra
 if extra_sel:
     df_extra = df[df["label"].isin(extra_sel)]
     df_filtrato = pd.concat([df_filtrato, df_extra])
@@ -109,131 +109,164 @@ if extra_sel:
 df_filtrato = df_filtrato.drop_duplicates()
 
 # =========================
-# OFFERTA INTELLIGENTE
+# OFFERTA SMART
 # =========================
 offerte = []
-for idx, row in df_filtrato.iterrows():
-    key = row["label"]
-
-    if key in st.session_state.offerte_custom:
-        offerte.append(st.session_state.offerte_custom[key])
-    else:
-        offerte.append(tariffa_base)
+for _, r in df_filtrato.iterrows():
+    key = r["label"]
+    offerte.append(st.session_state.offerte_custom.get(key, tariffa_base))
 
 df_filtrato["offerta"] = offerte
 
 # =========================
-# TABELLA
+# TABELLA INPUT
 # =========================
 st.subheader("📋 Impianti partecipanti")
 
 df_table = df_filtrato[[
-    "flag", "label", "tipologia", "totale (t)", "distanza_km", "offerta"
+    "flag","label","tipologia","totale (t)","distanza_km","offerta"
 ]].rename(columns={
-    "flag": "Seleziona",
-    "label": "Impianto",
-    "tipologia": "Tipologia",
-    "totale (t)": "Quantità",
-    "distanza_km": "Distanza",
-    "offerta": "Offerta (€)"
+    "flag":"Seleziona",
+    "label":"Impianto",
+    "tipologia":"Tipologia",
+    "totale (t)":"Quantità",
+    "distanza_km":"Distanza",
+    "offerta":"Offerta (€)"
 })
 
-# altezza dinamica
 row_height = 35
-dynamic_height = min(600, 40 + len(df_table) * row_height)
+dynamic_height = min(600, 40 + len(df_table)*row_height)
 
 edited = st.data_editor(
     df_table,
     use_container_width=True,
     height=dynamic_height,
+    hide_index=True,
     column_config={
         "Seleziona": st.column_config.CheckboxColumn(),
         "Offerta (€)": st.column_config.NumberColumn(min_value=0)
     },
-    disabled=["Impianto", "Tipologia", "Quantità", "Distanza"]
+    disabled=["Impianto","Tipologia","Quantità","Distanza"]
 )
 
-# salva modifiche utente
-for i, r in edited.iterrows():
-    key = r["Impianto"]
-    st.session_state.offerte_custom[key] = r["Offerta (€)"]
+# salva stato
+for _, r in edited.iterrows():
+    st.session_state.offerte_custom[r["Impianto"]] = r["Offerta (€)"]
 
 df_filtrato["flag"] = edited["Seleziona"].values
 df_filtrato["offerta"] = edited["Offerta (€)"].values
 
-df_finale = df_filtrato[df_filtrato["flag"]].copy()
+# =========================
+# BOTTONE SIMULAZIONE
+# =========================
+simula = st.button("🚀 Simula gara")
 
 # =========================
-# CALCOLO GARA
+# COLORI TESTO
 # =========================
-df_finale["km_fuori"] = (df_finale["distanza_km"] - raggio_km).clip(lower=0)
-df_finale["penalita"] = df_finale["km_fuori"] * penale_km
-df_finale["offerta_finale"] = df_finale["offerta"] - df_finale["penalita"]
-
-df_finale = df_finale.sort_values("offerta_finale", ascending=False)
-df_finale["ranking"] = range(1, len(df_finale)+1)
-
-# =========================
-# TABELLA RISULTATI + COLORI
-# =========================
-st.subheader("🏆 Risultato gara")
-
-def highlight(row):
+def highlight_text(row):
     if row.ranking == 1:
-        return ["background-color: #d4edda"] * len(row)
+        return ["color: green; font-weight: bold"] * len(row)
     elif row.ranking == len(df_finale):
-        return ["background-color: #f8d7da"] * len(row)
+        return ["color: red"] * len(row)
     return [""] * len(row)
 
-df_gara = df_finale[[
-    "ranking", "label", "offerta", "penalita", "offerta_finale"
-]].rename(columns={
-    "label": "Impianto",
-    "offerta": "Offerta",
-    "penalita": "Penalità",
-    "offerta_finale": "Finale"
-})
-
-st.dataframe(df_gara.style.apply(highlight, axis=1), use_container_width=True)
-
 # =========================
-# MAPPA
+# SIMULAZIONE
 # =========================
-st.subheader("📍 Mappa")
+if simula:
 
-lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
+    with st.spinner("⏳ Calcolo in corso..."):
+        time.sleep(0.5)
 
-fig = go.Figure()
+        df_finale = df_filtrato[df_filtrato["flag"]].copy()
 
-fig.add_trace(go.Scattermapbox(
-    lat=lat_circle,
-    lon=lon_circle,
-    mode='lines',
-    fill='toself',
-    fillcolor='rgba(0,200,0,0.1)',
-    line=dict(color='green')
-))
+        df_finale["km_fuori"] = (df_finale["distanza_km"] - raggio_km).clip(lower=0)
+        df_finale["penalita"] = df_finale["km_fuori"] * penale_km
+        df_finale["offerta_finale"] = df_finale["offerta"] - df_finale["penalita"]
 
-fig.add_trace(go.Scattermapbox(
-    lat=[lat_centro],
-    lon=[lon_centro],
-    mode='markers',
-    marker=dict(size=14, color='red'),
-    name="Comune"
-))
+        df_finale = df_finale.sort_values("offerta_finale", ascending=False)
+        df_finale["ranking"] = range(1, len(df_finale)+1)
 
-fig.add_trace(go.Scattermapbox(
-    lat=df_finale["latitudine"],
-    lon=df_finale["longitudine"],
-    mode='markers+text',
-    text=df_finale["label"],
-    marker=dict(size=10, color='black')
-))
+    # =========================
+    # KPI
+    # =========================
+    best = df_finale.iloc[0]
+    worst = df_finale.iloc[-1]
 
-fig.update_layout(
-    mapbox_style="open-street-map",
-    mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
-    height=900
-)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🥇 Migliore offerta", f"{best['offerta_finale']:.1f} €")
+    col2.metric("📉 Peggiore offerta", f"{worst['offerta_finale']:.1f} €")
+    col3.metric("Δ Spread", f"{best['offerta_finale'] - worst['offerta_finale']:.1f} €")
 
-st.plotly_chart(fig, use_container_width=True)
+    # =========================
+    # TABELLA RISULTATI
+    # =========================
+    st.subheader("🏆 Risultato gara")
+
+    df_gara = df_finale[[
+        "ranking","label","offerta","penalita","offerta_finale"
+    ]].rename(columns={
+        "label":"Impianto",
+        "offerta":"Offerta (€)",
+        "penalita":"Penalità (€)",
+        "offerta_finale":"Offerta finale (€)"
+    })
+
+    st.dataframe(
+        df_gara.style.apply(highlight_text, axis=1),
+        use_container_width=True
+    )
+
+    # =========================
+    # GRAFICO
+    # =========================
+    fig_bar = px.bar(
+        df_finale,
+        x="label",
+        y="offerta_finale",
+        title="📊 Ranking offerte",
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+    # =========================
+    # MAPPA
+    # =========================
+    st.subheader("📍 Mappa")
+
+    lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scattermapbox(
+        lat=lat_circle,
+        lon=lon_circle,
+        mode='lines',
+        fill='toself',
+        fillcolor='rgba(0,200,0,0.1)',
+        line=dict(color='green')
+    ))
+
+    fig.add_trace(go.Scattermapbox(
+        lat=[lat_centro],
+        lon=[lon_centro],
+        mode='markers',
+        marker=dict(size=14, color='red'),
+        name="Comune"
+    ))
+
+    fig.add_trace(go.Scattermapbox(
+        lat=df_finale["latitudine"],
+        lon=df_finale["longitudine"],
+        mode='markers+text',
+        text=df_finale["label"],
+        marker=dict(size=10, color='black')
+    ))
+
+    fig.update_layout(
+        mapbox_style="open-street-map",
+        mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
+        height=800
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
