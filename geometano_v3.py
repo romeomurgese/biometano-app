@@ -130,6 +130,11 @@ for _, r in df_filtrato.iterrows():
 df_filtrato["offerta"] = offerte
 
 # =========================
+# PULSANTE SIMULA IN ALTO
+# =========================
+simula = st.button("🚀 Simula gara")
+
+# =========================
 # TABELLA INPUT
 # =========================
 st.subheader("📋 Impianti partecipanti")
@@ -215,11 +220,6 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
-
-# =========================
-# BOTTONE SIMULAZIONE
-# =========================
-simula = st.button("🚀 Simula gara")
 
 # =========================
 # COLORI TESTO
