@@ -124,11 +124,12 @@ df_filtrato["offerta"] = offerte
 st.subheader("📋 Impianti partecipanti")
 
 df_table = df_filtrato[[
-    "flag","label","tipologia","totale (t)","distanza_km","offerta"
+    "flag", "label", "tipologia", "società", "totale (t)", "distanza_km","offerta"
 ]].rename(columns={
     "flag":"Seleziona",
     "label":"Impianto",
     "tipologia":"Tipologia",
+    "società":"Società",
     "totale (t)":"Quantità",
     "distanza_km":"Distanza",
     "offerta":"Offerta (€)"
@@ -144,9 +145,10 @@ edited = st.data_editor(
     hide_index=True,
     column_config={
         "Seleziona": st.column_config.CheckboxColumn(),
-        "Offerta (€)": st.column_config.NumberColumn(min_value=0)
+        "Offerta (€)": st.column_config.NumberColumn(min_value=0),
+        "Società": st.column_config.TextColumn(width="medium")
     },
-    disabled=["Impianto","Tipologia","Quantità","Distanza"]
+    disabled=["Impianto","Tipologia","Quantità","Distanza","Società"]
 )
 
 # salva stato
