@@ -141,10 +141,15 @@ df_table = df_table[[
     "Offerta", "penalita", "offerta_finale"
 ]]
 
+row_height = 35  # altezza media per riga
+header_height = 40
+
+dynamic_height = min(600, header_height + len(df_table) * row_height)
+
 edited = st.data_editor(
     df_table,
     use_container_width=True,
-    height=400,
+    height=dynamic_height,
     column_config={
         "Seleziona": st.column_config.CheckboxColumn(),
         "Offerta": st.column_config.NumberColumn(min_value=0)
