@@ -162,6 +162,20 @@ df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
     
 df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
 
+# =========================
+# CALCOLO PENALITÀ GARA
+# =========================
+df_finale["km_fuori_raggio"] = (df_finale["distanza_km"] - raggio_km).clip(lower=0)
+
+df_finale["penalita"] = df_finale["km_fuori_raggio"] * penale_km
+
+df_finale["offerta_effettiva"] = df_finale["offerta"] - df_finale["penalita"]
+
+# Ranking gara (più alto = migliore)
+df_finale = df_finale.sort_values("offerta_effettiva", ascending=False)
+
+df_finale["ranking"] = range(1, len(df_finale) + 1)
+
 st.markdown("---")
 
 # =========================
