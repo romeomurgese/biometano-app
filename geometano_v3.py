@@ -5,6 +5,18 @@ import plotly.graph_objects as go
 from math import radians, cos, sin, asin
 
 st.set_page_config(layout="wide")
+from PIL import Image
+
+logo = Image.open("BIOENERYS.png")
+
+col1, col2 = st.columns([1, 6])
+
+with col1:
+    st.image(logo, width=120)
+
+with col2:
+    st.title("🌱 Bioenerys Srl - Simulatore gara")
+    
 col1, col2 = st.columns([1, 8])
 
 with col1:
