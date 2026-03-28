@@ -79,6 +79,14 @@ impianti_extra_input = st.sidebar.text_area(
 )
 impianti_extra = [x.strip().lower() for x in impianti_extra_input.split("\n") if x.strip() != ""]
 
+# Input penale chilometrica
+penale_km = st.sidebar.number_input(
+    "⚖️ Penalità €/km fuori raggio",
+    min_value=0.0,
+    value=0.5,
+    step=0.1
+)
+
 # =========================
 # FILTRAGGIO COMUNE
 # =========================
