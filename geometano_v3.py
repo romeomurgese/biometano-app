@@ -17,19 +17,6 @@ with col1:
 with col2:
     st.title("🌱 Bioenerys Srl - Simulatore gara")
     
-col1, col2 = st.columns([1, 8])
-
-with col1:
-    st.image(logo, width=100)
-
-with col2:
-    st.markdown(
-        "<h1 style='margin-bottom:0;'>Bioenerys Srl</h1>"
-        "<p style='margin-top:0; color:gray;'>Simulatore gara impianti</p>",
-        unsafe_allow_html=True
-    )
-st.title("🌱 Bioenerys Srl - Simulatore gara")
-
 # =========================
 # FUNZIONI
 # =========================
