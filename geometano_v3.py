@@ -41,7 +41,7 @@ def normalize_cols(df):
         df.columns
         .str.lower()
         .str.replace(" ", "_")
-        .apply(lambda x: unicodedata.normalize('NFKD', x).encode('ascii', errors='ignore').decode('utf-8'))
+        .map(lambda x: unicodedata.normalize('NFKD', str(x)).encode('ascii', errors='ignore').decode('utf-8'))
     )
     return df
 
