@@ -48,7 +48,7 @@ def load_data():
     df["latitudine"] = pd.to_numeric(df["latitudine"], errors='coerce')
     df["longitudine"] = pd.to_numeric(df["longitudine"], errors='coerce')
     df["flag"] = True
-    df["offerta"] = 0.0
+    df["offerta"] = np.nan
     df["label_impianto"] = df["comune"] + " (" + df["provincia"] + ")"
     return df
 
