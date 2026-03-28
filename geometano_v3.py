@@ -111,15 +111,46 @@ df_finale = df_filtrato[df_filtrato["flag"] == True].drop_duplicates()
 # TABELLA INTERATTIVA SOPRA MAPPA
 # =========================
 st.subheader("📋 Impianti partecipanti")
-for idx, row in df_filtrato.iterrows():
-    cols = st.columns([0.1, 0.3, 0.3, 0.3, 0.3])
-    flag = cols[0].checkbox("", value=row["flag"], key=f"flag_{idx}")
-    df_filtrato.at[idx, "flag"] = flag
-    cols[1].write(row["comune"])
-    cols[2].write(row["tipologia"])
-    offerta = cols[3].number_input("Offerta (€)", value=row.get("offerta") if pd.notna(row.get("offerta")) else 0.0, key=f"offerta_{idx}")
-    df_filtrato.at[idx, "offerta"] = offerta
-#    cols[4].write(f"{row['totale (t)']} t")
+
+# Prepara tabella compatta
+df_table = df_filtrato.copy()
+
+df_table = df_table[[
+    "flag",
+    "comune",
+    "tipologia",
+    "totale (t)",
+    "distanza_km",
+    "offerta"
+]]
+
+df_table = df_table.rename(columns={
+    "flag": "Seleziona",
+    "comune": "Impianto",
+    "tipologia": "Tipologia",
+    "totale (t)": "Quantità (t)",
+    "distanza_km": "Distanza (km)",
+    "offerta": "Offerta (€)"
+})
+
+# Editor tabellare compatto
+edited_df = st.data_editor(
+    df_table,
+    use_container_width=True,
+    height=300,
+    column_config={
+        "Seleziona": st.column_config.CheckboxColumn(),
+        "Offerta (€)": st.column_config.NumberColumn(min_value=0, step=1),
+    },
+    disabled=["Impianto", "Tipologia", "Quantità (t)", "Distanza (km)"]
+)
+
+# Riporta modifiche nel dataframe originale
+df_filtrato["flag"] = edited_df["Seleziona"].values
+df_filtrato["offerta"] = edited_df["Offerta (€)"].values
+
+# Filtra finale
+df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
     
 df_finale = df_filtrato[df_filtrato["flag"] == True].copy()
 
