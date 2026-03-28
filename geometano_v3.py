@@ -117,6 +117,9 @@ df_filtrato = df_filtrato.drop_duplicates()
 # =========================
 st.subheader("📊 Simulazione gara")
 
+# Imposta tariffa base solo dove offerta non è stata ancora inserita
+df_filtrato["offerta"] = df_filtrato["offerta"].fillna(tariffa_base)
+
 df_table = df_filtrato.copy()
 
 df_table["km_fuori"] = (df_table["distanza_km"] - raggio_km).clip(lower=0)
