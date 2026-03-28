@@ -178,6 +178,26 @@ df_finale["ranking"] = range(1, len(df_finale) + 1)
 
 st.markdown("---")
 
+
+st.subheader("🏆 Risultato gara")
+
+df_gara = df_finale[[
+    "ranking",
+    "comune",
+    "offerta",
+    "km_fuori_raggio",
+    "penalita",
+    "offerta_effettiva"
+]].rename(columns={
+    "comune": "Impianto",
+    "offerta": "Offerta (€)",
+    "km_fuori_raggio": "Km fuori raggio",
+    "penalita": "Penalità (€)",
+    "offerta_effettiva": "Offerta finale (€)"
+})
+
+st.dataframe(df_gara, use_container_width=True)
+
 # =========================
 # MAPPA
 # =========================
