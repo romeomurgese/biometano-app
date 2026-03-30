@@ -153,14 +153,11 @@ df_filtrato["quantita_fmt"] = df_filtrato["totale_(t)"].apply(lambda x: f"{int(x
 st.subheader("📋 Impianti partecipanti")
 
 df_table = df_filtrato[[
-    "flag", "label", "tipologia", "societa", "totale_(t)", "distanza_km","offerta"
     "flag", "label", "tipologia", "quantita_fmt", "distanza_km","offerta"
 ]].rename(columns={
     "flag":"Seleziona",
     "label":"Impianto",
     "tipologia":"Tipologia",
-    "societa":"Società",
-    "totale_(t)":"Quantità",
     "quantita_fmt":"Quantità",
     "distanza_km":"Distanza",
     "offerta":"Offerta (€)"
@@ -179,7 +176,6 @@ edited = st.data_editor(
         "Offerta (€)": st.column_config.NumberColumn(min_value=0),
         "Società": st.column_config.TextColumn(width="medium")
     },
-    disabled=["Impianto","Tipologia","Quantità","Distanza","Società"]
     disabled=["Impianto","Tipologia","Quantità","Distanza"]
 )
 
@@ -293,6 +289,21 @@ if simula:
         df_gara.style.apply(highlight_text, axis=1),
         use_container_width=True
     )
+    ddf_gara = df_finale[[
+    "ranking","label","offerta","penalita","offerta_finale"
+]].rename(columns={
+    "ranking":"Posizione",
+    "label":"Impianto",
+    "offerta":"Offerta (€)",
+    "penalita":"Penalità (€)",
+    "offerta_finale":"Offerta finale (€)"
+})
+
+st.dataframe(
+    df_gara.style.apply(highlight_text, axis=1),
+    use_container_width=True,
+    hide_index=True
+)
 
     # =========================
     # GRAFICO
