@@ -273,27 +273,21 @@ if simula:
     st.subheader("🏆 Risultato gara")
 
     df_gara = df_finale[[
-        "ranking","label","offerta","penalita","offerta_finale"
-    ]].rename(columns={
-        "ranking":"Posizione",
-        "label":"Impianto",
-        "offerta":"Offerta (€)",
-        "penalita":"Penalità (€)",
-        "offerta_finale":"Offerta finale (€)"
-    })
+    "ranking","label","offerta","penalita","offerta_finale"
+]]
 
-    st.dataframe(
-        df_gara.style.apply(highlight_text, axis=1),
-        use_container_width=True,
-        hide_index=True
-    )
+styled = df_gara.style.apply(highlight_text, axis=1)
 
-    # ✅ GRAFICO (ATTENZIONE QUI)
-    fig_bar = px.bar(
-        df_finale,
-        x="label",
-        y="offerta_finale",
-        title="📊 Ranking offerte",
-    )
+df_gara = df_gara.rename(columns={
+    "ranking":"Posizione",
+    "label":"Impianto",
+    "offerta":"Offerta (€)",
+    "penalita":"Penalità (€)",
+    "offerta_finale":"Offerta finale (€)"
+})
 
-    st.plotly_chart(fig_bar, use_container_width=True)
+st.dataframe(
+    styled,
+    use_container_width=True,
+    hide_index=True
+)
