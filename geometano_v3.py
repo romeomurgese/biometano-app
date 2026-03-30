@@ -289,29 +289,30 @@ if simula:
         df_gara.style.apply(highlight_text, axis=1),
         use_container_width=True
     )
-    ddf_gara = df_finale[[
-    "ranking","label","offerta","penalita","offerta_finale"
-]].rename(columns={
-    "ranking":"Posizione",
-    "label":"Impianto",
-    "offerta":"Offerta (€)",
-    "penalita":"Penalità (€)",
-    "offerta_finale":"Offerta finale (€)"
-})
 
-st.dataframe(
-    df_gara.style.apply(highlight_text, axis=1),
-    use_container_width=True,
-    hide_index=True
-)
+    ddf_gara = df_finale[[
+        "ranking","label","offerta","penalita","offerta_finale"
+    ]].rename(columns={
+        "ranking":"Posizione",
+        "label":"Impianto",
+        "offerta":"Offerta (€)",
+        "penalita":"Penalità (€)",
+        "offerta_finale":"Offerta finale (€)"
+    })
+
+    st.dataframe(
+        df_gara.style.apply(highlight_text, axis=1),
+        use_container_width=True,
+        hide_index=True
+    )
 
     # =========================
     # GRAFICO
     # =========================
-fig_bar = px.bar(
+    fig_bar = px.bar(
         df_finale,
         x="label",
         y="offerta_finale",
         title="📊 Ranking offerte",
     )
-   st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, use_container_width=True)
