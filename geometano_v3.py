@@ -19,7 +19,7 @@ with col1:
 
 with col2:
     # Carica logo
-    logo = Image.open("BIOENERYS.PNG")  # assicurati che il file sia nella cartella corrente
+    logo = Image.open("BIOENERYS.png")  # assicurati che il file sia nella cartella corrente
     st.image(logo, width=120)  # puoi cambiare width per adattarlo all'altezza della riga
 
 st.set_page_config(layout="wide")
