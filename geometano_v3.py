@@ -276,7 +276,7 @@ if simula:
     # =========================
     st.subheader("🏆 Risultato gara")
 
-    ddf_gara = df_finale[[
+ddf_gara = df_finale[[
         "ranking","label","offerta","penalita","offerta_finale"
     ]].rename(columns={
         "ranking":"Posizione",
