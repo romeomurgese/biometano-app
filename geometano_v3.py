@@ -237,11 +237,13 @@ st.plotly_chart(fig, use_container_width=True)
 # COLORI TESTO
 # =========================
 def highlight_text(row):
-    if row.ranking == 1:
-        return ["color: green; font-weight: bold"] * len(row)
-    elif row.ranking == len(df_finale):
-        return ["color: red"] * len(row)
-    return [""] * len(row)
+    styles = pd.Series("", index=row.index)
+    # Colora la cella dell'offerta finale
+    if row["Posizione"] == 1:
+        styles["Offerta finale (€)"] = "color:green; font-weight:bold"
+    elif row["Posizione"] == row.name + 1:  # usa l'indice per l'ultima riga
+        styles["Offerta finale (€)"] = "color:red; font-weight:bold"
+    return styles
 
 # =========================
 # SIMULAZIONE
