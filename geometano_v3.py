@@ -59,7 +59,7 @@ def load_data():
     return df
 
 # 🔄 Bottone refresh manuale
-if st.button("🔄 Aggiorna dati"):
+if st.button("🔄 Aggiorna database impianti"):
     st.cache_data.clear()
 
 df = load_data()
