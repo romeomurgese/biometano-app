@@ -87,7 +87,10 @@ tipologie = df["tipologia"].dropna().unique()
 tipologie_sel = st.sidebar.multiselect("🏭 Tipologie", tipologie, default=list(tipologie))
 
 # Label impianti
-df["label"] = df["comune"] + " (" + df["provincia"].fillna("") + ")"
+df["label"] = (
+    df["comune"] + " (" + df["provincia"].fillna("") + ")"
+    + " - " + df["societa"].fillna("N/D")
+)
 
 extra_sel = st.sidebar.multiselect(
     "➕ Impianti extra",
