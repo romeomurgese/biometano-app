@@ -48,7 +48,7 @@ def normalize_cols(df):
 # =========================
 # LOAD DATI
 # =========================
-@st.cache_data(ttl=300)
+@st.cache_data
 def load_data():
     df = pd.read_excel("impianti_geocodificati.xlsx")
     df = normalize_cols(df)
@@ -58,9 +58,13 @@ def load_data():
     df["flag"] = True
     return df
 
+# 🔄 Bottone refresh manuale
+if st.button("🔄 Aggiorna dati"):
+    st.cache_data.clear()
+
 df = load_data()
 
-@st.cache_data(ttl=120)
+@st.cache_data
 def load_comuni():
     df_comuni = pd.read_csv("comuni.csv")
     df_comuni["nome"] = df_comuni["name"].str.lower().str.strip()
