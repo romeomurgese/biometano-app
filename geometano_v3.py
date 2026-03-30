@@ -308,7 +308,7 @@ st.dataframe(
     # =========================
     # GRAFICO
     # =========================
-    fig_bar = px.bar(
+fig_bar = px.bar(
         df_finale,
         x="label",
         y="offerta_finale",
