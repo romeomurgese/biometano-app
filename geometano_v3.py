@@ -260,9 +260,7 @@ if simula:
         df_finale = df_finale.sort_values("offerta_finale", ascending=False)
         df_finale["ranking"] = range(1, len(df_finale)+1)
 
-    # =========================
     # KPI
-    # =========================
     best = df_finale.iloc[0]
     worst = df_finale.iloc[-1]
 
@@ -271,34 +269,31 @@ if simula:
     col2.metric("📉 Peggiore offerta", f"{worst['offerta_finale']:.1f} €")
     col3.metric("Δ Spread", f"{best['offerta_finale'] - worst['offerta_finale']:.1f} €")
 
-    # =========================
-    # TABELLA RISULTATI
-    # =========================
+    # TABELLA
     st.subheader("🏆 Risultato gara")
 
-    ddf_gara = df_finale[[
-    "ranking","label","offerta","penalita","offerta_finale"
-]].rename(columns={
-    "ranking":"Posizione",
-    "label":"Impianto",
-    "offerta":"Offerta (€)",
-    "penalita":"Penalità (€)",
-    "offerta_finale":"Offerta finale (€)"
-})
+    df_gara = df_finale[[
+        "ranking","label","offerta","penalita","offerta_finale"
+    ]].rename(columns={
+        "ranking":"Posizione",
+        "label":"Impianto",
+        "offerta":"Offerta (€)",
+        "penalita":"Penalità (€)",
+        "offerta_finale":"Offerta finale (€)"
+    })
 
-st.dataframe(
-    df_gara.style.apply(highlight_text, axis=1),
-    use_container_width=True,
-    hide_index=True
-)
+    st.dataframe(
+        df_gara.style.apply(highlight_text, axis=1),
+        use_container_width=True,
+        hide_index=True
+    )
 
-    # =========================
-    # GRAFICO
-    # =========================
+    # ✅ GRAFICO (ATTENZIONE QUI)
     fig_bar = px.bar(
         df_finale,
         x="label",
         y="offerta_finale",
         title="📊 Ranking offerte",
     )
+
     st.plotly_chart(fig_bar, use_container_width=True)
