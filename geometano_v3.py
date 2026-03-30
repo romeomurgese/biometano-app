@@ -276,20 +276,6 @@ if simula:
     # =========================
     st.subheader("🏆 Risultato gara")
 
-    df_gara = df_finale[[
-        "ranking","label","offerta","penalita","offerta_finale"
-    ]].rename(columns={
-        "label":"Impianto",
-        "offerta":"Offerta (€)",
-        "penalita":"Penalità (€)",
-        "offerta_finale":"Offerta finale (€)"
-    })
-
-    st.dataframe(
-        df_gara.style.apply(highlight_text, axis=1),
-        use_container_width=True
-    )
-
     ddf_gara = df_finale[[
         "ranking","label","offerta","penalita","offerta_finale"
     ]].rename(columns={
