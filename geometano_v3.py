@@ -12,7 +12,7 @@ from PIL import Image
 # =========================
 # HEADER CON LOGO
 # =========================
-col1, col2 = st.columns([0.8, 0.2])  # col1 più grande per il titolo, col2 per il logo
+col1, col2 = st.columns([0.9, 0.1])  # col1 più grande per il titolo, col2 per il logo
 
 with col1:
     st.title("🌱 Bioenerys Srl - Simulatore gara")
