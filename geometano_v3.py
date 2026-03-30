@@ -22,7 +22,6 @@ with col2:
     st.image(logo, width=120)  # puoi cambiare width per adattarlo all'altezza della riga
 
 st.set_page_config(layout="wide")
-st.title("🌱 Bioenerys Srl - Simulatore gara")
 
 # =========================
 # SESSION STATE
