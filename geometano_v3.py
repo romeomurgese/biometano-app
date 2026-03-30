@@ -180,6 +180,8 @@ df_table = df_filtrato[[
 row_height = 35
 dynamic_height = min(600, 40 + len(df_table)*row_height)
 
+st.markdown("💡 **Nota:** la colonna **Offerta (€)** è editabile, inserisci il valore ipotizzato per ogni partecipante.")
+
 edited = st.data_editor(
     df_table,
     use_container_width=True,
@@ -187,8 +189,11 @@ edited = st.data_editor(
     hide_index=True,
     column_config={
         "Seleziona": st.column_config.CheckboxColumn(),
-        "Offerta (€)": st.column_config.NumberColumn(min_value=0),
-        "Società": st.column_config.TextColumn(width="medium")
+        "Offerta (€)": st.column_config.NumberColumn(
+            min_value=0,
+            help="Inserisci qui la tariffa ipotizzata per il partecipante"
+        ),
+        # rimuovo 'Società' perché non esiste in df_table
     },
     disabled=["Impianto","Tipologia","Quantità","Distanza"]
 )
