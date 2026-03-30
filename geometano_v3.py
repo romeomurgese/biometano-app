@@ -6,6 +6,20 @@ import plotly.express as px
 from math import radians, cos, sin, asin
 import time
 import unicodedata
+from PIL import Image
+
+# =========================
+# HEADER CON LOGO
+# =========================
+col1, col2 = st.columns([0.8, 0.2])  # col1 più grande per il titolo, col2 per il logo
+
+with col1:
+    st.title("🌱 Bioenerys Srl - Simulatore gara")
+
+with col2:
+    # Carica logo
+    logo = Image.open("BIOENERYS.PNG")  # assicurati che il file sia nella cartella corrente
+    st.image(logo, width=120)  # puoi cambiare width per adattarlo all'altezza della riga
 
 st.set_page_config(layout="wide")
 st.title("🌱 Bioenerys Srl - Simulatore gara")
