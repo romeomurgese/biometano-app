@@ -142,18 +142,23 @@ df_filtrato["offerta"] = offerte
 simula = st.button("🚀 Simula gara")
 
 # =========================
+# FORMATTING
+# =========================
+
+df_filtrato["quantita_fmt"] = df_filtrato["totale_(t)"].apply(lambda x: f"{int(x):,}".replace(",", "."))
+
+# =========================
 # TABELLA INPUT
 # =========================
 st.subheader("📋 Impianti partecipanti")
 
 df_table = df_filtrato[[
-    "flag", "label", "tipologia", "societa", "totale_(t)", "distanza_km","offerta"
+    "flag", "label", "tipologia", "quantita_fmt", "distanza_km","offerta"
 ]].rename(columns={
     "flag":"Seleziona",
     "label":"Impianto",
     "tipologia":"Tipologia",
-    "societa":"Società",
-    "totale_(t)":"Quantità",
+    "quantita_fmt":"Quantità",
     "distanza_km":"Distanza",
     "offerta":"Offerta (€)"
 })
@@ -171,7 +176,7 @@ edited = st.data_editor(
         "Offerta (€)": st.column_config.NumberColumn(min_value=0),
         "Società": st.column_config.TextColumn(width="medium")
     },
-    disabled=["Impianto","Tipologia","Quantità","Distanza","Società"]
+    disabled=["Impianto","Tipologia","Quantità","Distanza"]
 )
 
 # salva stato
