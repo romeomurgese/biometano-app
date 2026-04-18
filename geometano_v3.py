@@ -237,32 +237,72 @@ lat_circle, lon_circle = circle_coords(lat_centro, lon_centro, raggio_km)
 
 fig = go.Figure()
 
+# 🔵 RAGGIO
 fig.add_trace(go.Scattermapbox(
     lat=lat_circle,
     lon=lon_circle,
     mode='lines',
-    fill='toself'
+    fill='toself',
+    name="Raggio gara",
+    hoverinfo='skip'  # ❌ niente hover inutile
 ))
 
+# 🔴 CENTRO
 fig.add_trace(go.Scattermapbox(
     lat=[lat_centro],
     lon=[lon_centro],
     mode='markers',
+    name="Centro gara",
     marker=dict(size=14, color='red'),
+    hovertemplate=f"""
+    <b>Centro gara</b><br>
+    Comune: {comune_sel.title()}<br>
+    Raggio: {raggio_km} km
+    <extra></extra>
+    """
 ))
 
+# ⚫ IMPIANTI
 fig.add_trace(go.Scattermapbox(
     lat=df_mappa["latitudine"],
     lon=df_mappa["longitudine"],
-    mode='markers+text',
-    text=df_mappa["label"],
+    mode='markers',
+    name="Impianti",
     marker=dict(size=10, color='black'),
+
+    # 🔥 DATI CUSTOM PER HOVER
+    customdata=np.stack((
+        df_mappa["distanza_km"],
+        df_mappa["offerta"],
+        df_mappa["totale_(t)"]
+    ), axis=-1),
+
+    hovertemplate="""
+    <b>%{text}</b><br>
+    📏 Distanza: %{customdata[0]:.1f} km<br>
+    💰 Offerta: %{customdata[1]:.1f} €<br>
+    📦 Quantità: %{customdata[2]:.1f} t
+    <extra></extra>
+    """,
+
+    text=df_mappa["label"]
 ))
 
 fig.update_layout(
     mapbox_style="open-street-map",
-    mapbox=dict(center=dict(lat=lat_centro, lon=lon_centro), zoom=6),
-    height=700
+    mapbox=dict(
+        center=dict(lat=lat_centro, lon=lon_centro),
+        zoom=6
+    ),
+    height=700,
+    legend=dict(
+        title="Legenda",
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="center",
+        x=0.5
+    )
 )
 
 st.plotly_chart(fig, use_container_width=True)
